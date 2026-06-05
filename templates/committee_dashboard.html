@@ -1,0 +1,54 @@
+<!-- templates/committee_dashboard.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Дашборд комитета{% endblock %}
+
+{% block content %}
+<h2>Сводка по образовательным учреждениям ({{ institutions|length }})</h2>
+<div class="search-filter">
+    <input type="text" id="searchInst" placeholder="Фильтр по названию учреждения...">
+</div>
+<div class="institutions-grid" id="instGrid">
+    {% for inst in institutions %}
+    <div class="inst-card {% if inst.overdue_count > 0 %}overdue-warning{% endif %}" data-id="{{ inst.id }}">
+        <div class="inst-name">
+            <span>{{ inst.name }}</span>
+            {% if inst.overdue_count > 0 %}⚠️{% else %}✅{% endif %}
+        </div>
+        <div class="inst-stats">
+            <span>📄 Предписаний: {{ inst.total_prescriptions }}</span>
+            <span>💰 Финансирование: {{ inst.funding|floatformat:0 }} ₽</span>
+        </div>
+        <div class="inst-stats">
+            <span class="stat-badge">✅ Исполнено: 0</span>
+            <span class="overdue-count">⚠️ Просрочено: {{ inst.overdue_count }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // Фильтрация карточек на клиенте
+    document.getElementById('searchInst').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('.inst-card');
+        cards.forEach(card => {
+            const name = card.querySelector('.inst-name span').innerText.toLowerCase();
+            if (name.includes(term)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    // Переход к дашборду учреждения
+    document.querySelectorAll('.inst-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const instId = card.getAttribute('data-id');
+            window.location.href = `/institution/${instId}/`;
+        });
+    });
+</script>
+{% endblock %}

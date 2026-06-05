@@ -1,0 +1,64 @@
+<!-- templates/institution_dashboard.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ institution.name }} - Реестр предписаний{% endblock %}
+
+{% block content %}
+<a href="{% url 'committee_dashboard' %}" class="back-link">← Назад к дашборду комитета</a>
+
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap;">
+    <h3>📌 Реестр предписаний для {{ institution.name }}</h3>
+    <div>
+        <button class="btn-primary" id="createPrescBtn">➕ Создать предписание</button>
+        <button class="btn-primary" id="createFundingBtn" style="background:#2b6e4f; margin-left:0.5rem;">💰 Заявка на финансирование</button>
+    </div>
+</div>
+
+<div class="prescriptions-table-wrapper">
+    <table class="prescriptions-table">
+        <thead>
+            <tr><th>№ предписания</th><th>Надзорный орган</th><th>Срок исполнения</th><th>Статус</th><th>Нарушения</th><th>Действие</th></tr>
+        </thead>
+        <tbody>
+            {% for p in prescriptions %}
+            <tr>
+                <td>{{ p.number }}</td>
+                <td>{{ p.oversight }}</td>
+                <td>{{ p.due_date }}</td>
+                <td>
+                    <span class="status-badge 
+                        {% if p.status == 'overdue' %}status-overdue
+                        {% elif p.status == 'expiring' %}status-expiring
+                        {% elif p.status == 'completed' %}status-completed
+                        {% else %}status-pending{% endif %}">
+                        {% if p.status == 'overdue' %}Просрочено
+                        {% elif p.status == 'expiring' %}Истекает
+                        {% elif p.status == 'completed' %}Исполнено
+                        {% else %}В работе{% endif %}
+                    </span>
+                </td>
+                <td><ul class="violations-list">{% for v in p.violations %}<li>• {{ v }}</li>{% endfor %}</ul></td>
+                <td>{% if p.status != 'completed' %}<button class="btn-icon complete-presc" data-id="{{ p.id }}">✅ Исполнить</button>{% else %}✔️ Выполнено{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">Нет предписаний</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="funding-section">
+    <strong>💰 Финансирование учреждения: {{ institution.funding|floatformat:0 }} ₽</strong>
+    <div id="fundingRequestsList">(Заявки будут здесь)</div>
+</div>
+
+<script>
+    // Временные заглушки для кнопок
+    document.getElementById('createPrescBtn')?.addEventListener('click', () => alert('Форма создания предписания (будет реализована)'));
+    document.getElementById('createFundingBtn')?.addEventListener('click', () => alert('Форма заявки на финансирование (будет реализована)'));
+    document.querySelectorAll('.complete-presc').forEach(btn => {
+        btn.addEventListener('click', () => alert('Отметка предписания как исполненного (будет реализована)'));
+    });
+</script>
+{% endblock %}

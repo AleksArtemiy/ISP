@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Вход в систему{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <h2>Авторизация</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div style="margin-bottom: 1rem;">
+                <label>Имя пользователя</label>
+                <input type="text" name="username" class="search-filter" style="width:100%; margin:0;" required>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label>Пароль</label>
+                <input type="password" name="password" class="search-filter" style="width:100%; margin:0;" required>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%;">Войти</button>
+        </form>
+        {% if messages %}
+            <div style="margin-top: 1rem; color: red;">{% for message in messages %}{{ message }}{% endfor %}</div>
+        {% endif %}
+        <p style="font-size:0.7rem; margin-top:1rem; text-align:center;">Демо: любой логин/пароль (временно)</p>
+    </div>
+</div>
+{% endblock %}

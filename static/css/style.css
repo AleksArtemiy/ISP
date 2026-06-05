@@ -1,0 +1,266 @@
+/* static/css/style.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #f0f2f5;
+    color: #1e293b;
+    line-height: 1.4;
+}
+
+.app-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    background: #0f3b5c;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.logo-area h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+}
+
+.logo-area p {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.user-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: rgba(255,255,255,0.12);
+    padding: 0.4rem 1rem;
+    border-radius: 40px;
+}
+
+.role-badge {
+    background: #2c6e9e;
+    padding: 0.25rem 0.9rem;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.btn-logout {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.5);
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.btn-logout:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: white;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Сетка карточек учреждений */
+.institutions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.inst-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-left: 5px solid #2c6e9e;
+}
+
+.inst-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.1);
+}
+
+.inst-card.overdue-warning {
+    border-left-color: #dc2626;
+    background: #fff9f9;
+}
+
+.inst-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.inst-stats {
+    display: flex;
+    justify-content: space-between;
+    margin: 1rem 0 0.5rem;
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.stat-badge {
+    background: #eef2ff;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.overdue-count {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* Таблица предписаний */
+.prescriptions-table-wrapper {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.prescriptions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.prescriptions-table th, .prescriptions-table td {
+    text-align: left;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.prescriptions-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 30px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-overdue { background: #fee2e2; color: #b91c1c; }
+.status-expiring { background: #fef9c3; color: #854d0e; }
+.status-completed { background: #dcfce7; color: #15803d; }
+.status-pending { background: #e2e8f0; color: #334155; }
+
+.violations-list {
+    font-size: 0.75rem;
+    color: #475569;
+    margin-top: 0.2rem;
+    list-style: none;
+}
+
+.btn-icon {
+    background: #eef2ff;
+    border: none;
+    padding: 0.3rem 0.7rem;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: #0f3b5c;
+    color: white;
+    padding: 0.5rem 1.2rem;
+    border: none;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-primary:hover {
+    background: #1f5a7e;
+}
+
+.funding-section {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-top: 1rem;
+}
+
+.search-filter {
+    margin: 1rem 0;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.search-filter input {
+    padding: 0.5rem 1rem;
+    border-radius: 30px;
+    border: 1px solid #cbd5e1;
+    flex: 1;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    color: #0f3b5c;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* Форма авторизации */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2ff;
+}
+
+.login-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 35px rgba(0,0,0,0.1);
+}
+
+/* Адаптивность */
+@media (max-width: 640px) {
+    .main-content { padding: 1rem; }
+    .inst-name { font-size: 1.1rem; }
+}

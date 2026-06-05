@@ -16,7 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from apps.dashboard.views import login_view, committee_dashboard, institution_dashboard, logout_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('login/', login_view, name='login'),
+    path('logout/', logout_view, name='logout'),
+    path('', committee_dashboard, name='committee_dashboard'),  # главная после входа
+    path('institution/<int:institution_id>/', institution_dashboard, name='institution_dashboard'),
 ]
