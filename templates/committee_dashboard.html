@@ -1,54 +1,342 @@
-<!-- templates/committee_dashboard.html -->
-{% extends "base.html" %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дашборд комитета | Реестр предписаний</title>
+    <link rel="stylesheet" href="{% static 'css/committee_dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/prescriptions.css' %}">
+</head>
+<body>
+<div class="wrapper">
+    <header class="topbar">
+        <div class="topbar-left">
+            <div class="logo">📄</div>
+            <div class="system-info">
+                <h1>Система учёта предписаний</h1>
+                <p>Надзорные органы • Новгородская область</p>
+            </div>
+        </div>
+        <div class="topbar-center">
+            <div class="search-box">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="M20 20L17 17"></path>
+                </svg>
+                <input type="text" id="globalSearch" placeholder="Поиск по учреждениям, предписаниям...">
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="committee">Комитет образования</div>
+            <div class="notification">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M15 17H5L7 14V10A5 5 0 0117 10V14L19 17H15Z"></path>
+                </svg>
+                <div class="notification-dot"></div>
+            </div>
+            <div class="divider"></div>
+            <div class="profile" id="profileBtn">
+                <div class="avatar">АП</div>
+                <div class="profile-info">
+                    <h3>{{ user.get_full_name|default:"Петров А.И." }}</h3>
+                    <span>{{ user_role|default:"Администратор" }}</span>
+                </div>
+                <svg class="dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M6 9L12 15L18 9"></path>
+                </svg>
+                <div class="profile-dropdown" id="dropdown">
+                    <button>Профиль</button>
+                    <button>Настройки</button>
+                    <button id="logoutBtn">Выйти</button>
+                </div>
+            </div>
+        </div>
+    </header>
 
-{% block title %}Дашборд комитета{% endblock %}
+    <main class="main">
+        <!-- Статистика -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M8 3H16L21 8V21H3V3H8Z"></path>
+                        <path d="M8 12H16"></path><path d="M8 16H13"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">Всего предписаний</div>
+                <div class="stat-value">{{ total_prescriptions }}</div>
+                <div class="stat-subtitle">+{{ new_this_month }} за месяц</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M12 9V13"></path><path d="M12 17H12.01"></path>
+                        <path d="M10 3L2 17H22L14 3H10Z"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">Просроченные</div>
+                <div class="stat-value">{{ overdue_total }}</div>
+                <div class="stat-subtitle">Требуют внимания</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon yellow-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 7V12L15 15"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">Скоро истекают</div>
+                <div class="stat-value">{{ expiring_soon_total }}</div>
+                <div class="stat-subtitle">До 14 дней</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M8 12L11 15L16 9"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">Исполненные</div>
+                <div class="stat-value">{{ completed_total }}</div>
+                <div class="stat-subtitle">{{ completion_percent }}% выполнено</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                        <path d="M16 12H16.01"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">Общее финансирование</div>
+                <div class="stat-value" style="font-size:34px;">{{ total_funding|floatformat:0 }} ₽</div>
+                <div class="stat-subtitle">Текущий год</div>
+            </div>
+        </section>
 
-{% block content %}
-<h2>Сводка по образовательным учреждениям ({{ institutions|length }})</h2>
-<div class="search-filter">
-    <input type="text" id="searchInst" placeholder="Фильтр по названию учреждения...">
+        <!-- Карточки учреждений -->
+        <section>
+            <div class="section-header">
+                <h2>Учреждения образования</h2>
+                <span>Всего: {{ institutions|length }}</span>
+            </div>
+            <div class="school-grid" id="instGrid">
+                {% for inst in institutions %}
+                <div class="school-card" data-id="{{ inst.id }}">
+                    <div class="school-title">{{ inst.name }}</div>
+                    <div class="school-tag">{{ inst.type_name }}</div>
+                    <div class="progress-row">
+                        <span>Прогресс выполнения</span>
+                        <strong>{{ inst.completed_prescriptions }}/{{ inst.total_prescriptions }}</strong>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-fill 
+                            {% if inst.bar_color == 'green' %}green
+                            {% elif inst.bar_color == 'yellow' %}yellow
+                            {% elif inst.bar_color == 'red' %}red
+                            {% elif inst.bar_color == 'pastel-green' %}pastel-green
+                            {% endif %}"
+                            style="width: {{ inst.progress_percent }}%">
+                        </div>
+                    </div>
+                    <div class="progress-text 
+                        {% if inst.deadline_status == 'overdue' %}red-text
+                        {% elif inst.deadline_status == 'expiring' %}yellow-text
+                        {% else %}green-text{% endif %}">
+                        {% if inst.deadline_status == 'overdue' %}
+                            Просрочено на {{ inst.overdue_days }} дн.
+                        {% elif inst.deadline_status == 'expiring' %}
+                            До окончания: {{ inst.days_left }} дн.
+                        {% else %}
+                            Нет активных предписаний
+                        {% endif %}
+                    </div>
+                    <div class="school-stats">
+                        <div class="school-stat">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                                <path d="M8 3H16L21 8V21H3V3H8Z"></path>
+                            </svg>
+                            <div class="school-stat-info">
+                                <span>Предписаний</span>
+                                <strong>{{ inst.total_prescriptions }}</strong>
+                            </div>
+                        </div>
+                        <div class="school-stat red">
+                            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M12 8V13"></path><path d="M12 16H12.01"></path>
+                            </svg>
+                            <div class="school-stat-info">
+                                <span>Просрочено</span>
+                                <strong>{{ inst.overdue_count }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="school-divider"></div>
+                    <div class="finance">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                            <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                        </svg>
+                        <div class="finance-info">
+                            <span>Финансирование</span>
+                            <strong>{{ inst.funding|floatformat:0 }} ₽</strong>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Таблица всех предписаний -->
+        <section style="margin-top: 48px;">
+            <div class="section-header">
+                <h2>Реестр предписаний</h2>
+                <span>Всего: {{ prescriptions|length }}</span>
+            </div>
+            <div class="table-wrapper">
+                <div class="table-header">
+                    <div></div>
+                    <div>№ Предписания</div>
+                    <div>Учреждение</div>
+                    <div>Надзорный орган</div>
+                    <div>Срок исполнения</div>
+                    <div>Статус выполнения</div>
+                    <div>Ответственный</div>
+                </div>
+                {% for presc in prescriptions %}
+                <div class="table-row" data-id="{{ presc.id }}">
+                    <div class="expand-btn">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                            <path d="M9 6L15 12L9 18"></path>
+                        </svg>
+                    </div>
+                    <div><a href="#" class="prescription-link">{{ presc.number }}</a></div>
+                    <div>{{ presc.institution_name }}</div>
+                    <div>{{ presc.authority }}</div>
+                    <div class="deadline">{{ presc.due_date|date:"d.m.Y" }}</div>
+                    <div class="status">
+                        <div class="progress {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
+                            <div class="fill {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}" style="width: {{ presc.progress_percent }}%"></div>
+                        </div>
+                        <div class="status-text {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
+                            {{ presc.status_text }}
+                        </div>
+                    </div>
+                    <div class="responsible">{{ presc.responsible }}</div>
+                </div>
+                <div class="expanded-content" id="content-{{ presc.id }}">
+                    <h3>Нарушения:</h3>
+                    <ul class="violation-list">
+                        {% for violation in presc.violations %}
+                        <li>{{ violation }}</li>
+                        {% empty %}
+                        <li>Нет нарушений</li>
+                        {% endfor %}
+                    </ul>
+                    <button class="edit-btn" data-id="{{ presc.id }}">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                            <path d="M12 20H21"></path>
+                            <path d="M16.5 3.5A2.1 2.1 0 0119.5 6.5L7 19L3 20L4 16L16.5 3.5Z"></path>
+                        </svg>
+                    </button>
+                </div>
+                {% empty %}
+                <div class="table-row" style="grid-template-columns: 1fr; text-align: center; padding: 40px;">
+                    Нет предписаний
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+    <div class="help-button">?</div>
 </div>
-<div class="institutions-grid" id="instGrid">
-    {% for inst in institutions %}
-    <div class="inst-card {% if inst.overdue_count > 0 %}overdue-warning{% endif %}" data-id="{{ inst.id }}">
-        <div class="inst-name">
-            <span>{{ inst.name }}</span>
-            {% if inst.overdue_count > 0 %}⚠️{% else %}✅{% endif %}
-        </div>
-        <div class="inst-stats">
-            <span>📄 Предписаний: {{ inst.total_prescriptions }}</span>
-            <span>💰 Финансирование: {{ inst.funding|floatformat:0 }} ₽</span>
-        </div>
-        <div class="inst-stats">
-            <span class="stat-badge">✅ Исполнено: 0</span>
-            <span class="overdue-count">⚠️ Просрочено: {{ inst.overdue_count }}</span>
-        </div>
-    </div>
-    {% endfor %}
-</div>
 
+<script src="{% static 'js/committee_dashboard.js' %}"></script>
+<script src="{% static 'js/prescriptions.js' %}"></script>
 <script>
-    // Фильтрация карточек на клиенте
-    document.getElementById('searchInst').addEventListener('input', function(e) {
-        const term = e.target.value.toLowerCase();
-        const cards = document.querySelectorAll('.inst-card');
-        cards.forEach(card => {
-            const name = card.querySelector('.inst-name span').innerText.toLowerCase();
-            if (name.includes(term)) {
-                card.style.display = '';
-            } else {
-                card.style.display = 'none';
-            }
-        });
+    // Обработка выхода
+    document.getElementById('logoutBtn')?.addEventListener('click', function() {
+        window.location.href = "{% url 'logout' %}";
     });
-
-    // Переход к дашборду учреждения
-    document.querySelectorAll('.inst-card').forEach(card => {
-        card.addEventListener('click', () => {
+    // Переход по карточке учреждения (для комитета – на страницу учреждения)
+    document.querySelectorAll('.school-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.finance') || e.target.closest('.school-tag')) return;
             const instId = card.getAttribute('data-id');
             window.location.href = `/institution/${instId}/`;
         });
     });
+    // Глобальный поиск по таблице и карточкам (простейший вариант)
+    const globalSearch = document.getElementById('globalSearch');
+    if (globalSearch) {
+        globalSearch.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            // Фильтрация карточек
+            document.querySelectorAll('.school-card').forEach(card => {
+                const title = card.querySelector('.school-title').innerText.toLowerCase();
+                card.style.display = title.includes(term) ? '' : 'none';
+            });
+            // Фильтрация строк таблицы
+            document.querySelectorAll('.table-row:not(.expanded-content)').forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    }
+
+    function filterTable() {
+        const search = document.getElementById('tableSearch')?.value.toLowerCase() || '';
+        const instFilter = document.getElementById('filterInstitution')?.value || '';
+        const statusFilter = document.getElementById('filterStatus')?.value || '';
+        const authorityFilter = document.getElementById('filterAuthority')?.value || '';
+
+        document.querySelectorAll('.table-row:not(.expanded-content)').forEach(row => {
+            const number = row.querySelector('.prescription-link')?.innerText.toLowerCase() || '';
+            const inst = row.children[2]?.innerText || '';
+            const authority = row.children[3]?.innerText || '';
+            const statusDiv = row.querySelector('.status');
+            let statusClass = '';
+            if (statusDiv) {
+                const fillDiv = statusDiv.querySelector('.fill');
+                if (fillDiv) statusClass = fillDiv.classList.contains('green') ? 'green' : (fillDiv.classList.contains('yellow') ? 'yellow' : 'red');
+            }
+            let show = true;
+            if (search && !number.includes(search)) show = false;
+            if (instFilter && inst !== instFilter) show = false;
+            if (statusFilter && statusClass !== statusFilter) show = false;
+            if (authorityFilter && authority !== authorityFilter) show = false;
+            row.style.display = show ? '' : 'none';
+            // также скрываем соответствующий раскрытый блок
+            const contentId = row.getAttribute('data-id');
+            const content = document.getElementById(`content-${contentId}`);
+            if (content && !show) content.style.display = 'none';
+        });
+    }
+
+    document.getElementById('tableSearch')?.addEventListener('input', filterTable);
+    document.getElementById('filterInstitution')?.addEventListener('change', filterTable);
+    document.getElementById('filterStatus')?.addEventListener('change', filterTable);
+    document.getElementById('filterAuthority')?.addEventListener('change', filterTable);
+
+    // ========== РАСКРЫТИЕ СТРОК ПРЕДПИСАНИЙ ==========
+document.querySelectorAll('.table-row').forEach(row => {
+    const expandBtn = row.querySelector('.expand-btn');
+    const id = row.getAttribute('data-id');
+    const content = document.getElementById(`content-${id}`);
+    if (!content) return;
+
+    const toggleRow = (e) => {
+        // Не реагируем, если клик по ссылке предписания или кнопке редактирования
+        if (e.target.closest('.prescription-link') || e.target.closest('.edit-btn')) return;
+        row.classList.toggle('active');
+        content.classList.toggle('active');
+    };
+
+    // Вешаем клик на всю строку
+    row.addEventListener('click', toggleRow);
+    // Чтобы кнопка-стрелка тоже работала (если кликнуть именно по ней)
+    if (expandBtn) expandBtn.addEventListener('click', toggleRow);
+});
 </script>
-{% endblock %}
+</body>
+</html>

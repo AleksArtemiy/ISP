@@ -1,0 +1,120 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Все предписания | Реестр предписаний</title>
+    <link rel="stylesheet" href="{% static 'css/prescriptions.css' %}">
+</head>
+<body>
+<div class="page">
+    <h1 class="page-title">Все предписания</h1>
+
+    <div class="filters-wrapper">
+        <div class="filters">
+            <div class="search-box">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <path d="M20 20L17 17"></path>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Поиск по номеру предписания...">
+            </div>
+            <div class="select-box" id="institutionFilter">
+                <span>Все учреждения</span>
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M6 9L12 15L18 9"></path>
+                </svg>
+            </div>
+            <div class="select-box" id="statusFilter">
+                <span>Все статусы</span>
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M6 9L12 15L18 9"></path>
+                </svg>
+            </div>
+            <div class="select-box" id="authorityFilter">
+                <span>Надзорный орган</span>
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M6 9L12 15L18 9"></path>
+                </svg>
+            </div>
+            <button class="filter-button" id="filterBtn">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M3 5H21L14 13V20L10 18V13L3 5Z"></path>
+                </svg>
+                Фильтры
+            </button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <div class="table-header">
+            <div></div>
+            <div>№ Предписания</div>
+            <div>Учреждение</div>
+            <div>Надзорный орган</div>
+            <div>Срок исполнения</div>
+            <div>Статус выполнения</div>
+            <div>Ответственный</div>
+        </div>
+
+        {% for presc in prescriptions %}
+        <div class="table-row" data-id="{{ presc.id }}">
+            <div class="expand-btn">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M9 6L15 12L9 18"></path>
+                </svg>
+            </div>
+            <div>
+                <a href="#" class="prescription-link">{{ presc.number }}</a>
+            </div>
+            <div>{{ presc.institution_name }}</div>
+            <div>{{ presc.authority }}</div>
+            <div class="deadline">{{ presc.due_date|date:"d.m.Y" }}</div>
+            <div class="status">
+                <div class="progress {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
+                    <div class="fill {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}" style="width: {{ presc.progress_percent }}%"></div>
+                </div>
+                <div class="status-text {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
+                    {{ presc.status_text }}
+                </div>
+            </div>
+            <div class="responsible">{{ presc.responsible }}</div>
+        </div>
+        <div class="expanded-content" id="content-{{ presc.id }}">
+            <h3>Нарушения:</h3>
+            <ul class="violation-list">
+                {% for violation in presc.violations %}
+                <li>{{ violation }}</li>
+                {% empty %}
+                <li>Нет нарушений</li>
+                {% endfor %}
+            </ul>
+            <button class="edit-btn" data-id="{{ presc.id }}">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                    <path d="M12 20H21"></path>
+                    <path d="M16.5 3.5A2.1 2.1 0 0119.5 6.5L7 19L3 20L4 16L16.5 3.5Z"></path>
+                </svg>
+            </button>
+        </div>
+        {% empty %}
+        <div class="table-row" style="grid-template-columns: 1fr; text-align: center; padding: 40px;">
+            Нет предписаний
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="{% static 'js/prescriptions.js' %}"></script>
+<script>
+    // Обработка кнопки редактирования (временно – alert)
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const prescId = btn.getAttribute('data-id');
+            alert(`Редактирование предписания ${prescId} (будет реализовано)`);
+        });
+    });
+</script>
+</body>
+</html>
