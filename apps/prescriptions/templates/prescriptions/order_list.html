@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📋 Предписания</h2>
+        <a href="{% url 'order_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Создать предписание
+        </a>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Учреждение</th>
+                        <th>Срок исполнения</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.order_number }}</td>
+                        <td>{{ order.institution.short_name }}</td>
+                        <td>{{ order.deadline_date }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if order.status.name == 'Выполнено' %}bg-success
+                                {% elif order.status.name == 'Просрочено' %}bg-danger
+                                {% else %}bg-primary{% endif %}">
+                                {{ order.status.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'order_update' order.pk %}" class="btn btn-sm btn-warning">✏️</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">Нет предписаний</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

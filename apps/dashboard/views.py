@@ -170,17 +170,19 @@ def committee_dashboard(request):
     return render(request, "committee_dashboard.html", context)
 
 def institution_dashboard(request, institution_id):
-    # сохраняем для совместимости (позже доработаем в стиле дашборда учреждения)
+    # РАБОТАЕМ С МОК-ДАННЫМИ
     inst = next((i for i in INSTITUTIONS_DATA if i["id"] == institution_id), None)
     if not inst:
         from django.http import Http404
         raise Http404("Учреждение не найдено")
-    # фильтруем предписания для этого учреждения
+    
+    # Фильтруем предписания для этого учреждения
     prescs = [p for p in PRESCRIPTIONS_MOCK if p["institution_id"] == institution_id]
+    
     context = {
         "institution": inst,
         "prescriptions": prescs,
-        "funding_requests": [],  # можно добавить мок-заявки позже
+        "funding_requests": [],
     }
     return render(request, "institution_dashboard.html", context)
 
