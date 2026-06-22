@@ -15,8 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-from apps.dashboard.views import login_view, committee_dashboard, institution_dashboard, logout_view
+from django.urls import path, include
+from apps.dashboard.views import committee_dashboard, institution_dashboard
+from apps.accounts.views import login_view, logout_view  # импорт функций входа/выхода
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +26,6 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('', committee_dashboard, name='committee_dashboard'),  # главная после входа
     path('institution/<int:institution_id>/', institution_dashboard, name='institution_dashboard'),
+    path('accounts/', include('apps.accounts.urls')),  
+
 ]
