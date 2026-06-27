@@ -26,6 +26,6 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('', committee_dashboard, name='committee_dashboard'),  # главная после входа
     path('institution/<int:institution_id>/', institution_dashboard, name='institution_dashboard'),
+    path('prescriptions/', include('apps.prescriptions.urls')),
     path('accounts/', include('apps.accounts.urls')),  
-
 ]

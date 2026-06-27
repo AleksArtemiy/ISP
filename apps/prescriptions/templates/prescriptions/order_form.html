@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-primary text-white py-3 rounded-top-4">
+                    <h3 class="card-title m-0 fw-bold text-center">
+                        <i class="bi bi-plus-circle me-2"></i> {{ title }}
+                    </h3>
+                    <p class="text-center text-white-50 mb-0 small">Заполните все обязательные поля</p>
+                </div>
+
+                <div class="card-body p-4">
+                    <form method="post" id="orderForm">
+                        {% csrf_token %}
+
+                        <!-- Основная информация -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light fw-bold text-secondary">
+                                <i class="bi bi-file-earmark-text me-2"></i> Основная информация
+                            </div>
+                            <div class="card-body bg-white">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Номер предписания</label>
+                                        {{ form.order_number }}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">Дата выдачи</label>
+                                        {{ form.issuance_date }}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-bold">Срок исполнения</label>
+                                        {{ form.deadline_date }}
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Учреждение</label>
+                                        {{ form.institution }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Надзорный орган</label>
+                                        {{ form.authority }}
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Ответственный сотрудник</label>
+                                        {{ form.responsible_employee }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Статус</label>
+                                        {{ form.status }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Год</label>
+                                        {{ form.year }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Нарушения -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light fw-bold text-danger">
+                                <i class="bi bi-exclamation-triangle me-2"></i> Нарушения
+                            </div>
+                            <div class="card-body bg-white">
+                                {{ violation_formset.management_form }}
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover align-middle" id="violationsTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 80%">Описание нарушения</th>
+                                                <th style="width: 20%" class="text-center">Удалить</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for form in violation_formset %}
+                                            <tr>
+                                                <td>{{ form.description }}</td>
+                                                <td class="text-center">{{ form.DELETE }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="text-end mt-2">
+                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="addViolation()">
+                                        <i class="bi bi-plus-lg"></i> Добавить нарушение
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Кнопки действий -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'order_list' %}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-x-circle me-1"></i> Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary px-5 shadow">
+                                <i class="bi bi-check2-circle me-2"></i> Сохранить предписание
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрипт для добавления строк нарушений -->
+<script>
+function addViolation() {
+    const table = document.getElementById('violationsTable');
+    const tbody = table.querySelector('tbody');
+    const lastRow = tbody.querySelector('tr:last-child');
+    const newRow = lastRow.cloneNode(true);
+    
+    // Очищаем значения
+    newRow.querySelector('textarea').value = '';
+    newRow.querySelector('input[type="checkbox"]').checked = false;
+    
+    // Обновляем индексы (если используется formset)
+    const totalForms = document.querySelector('#id_violations-TOTAL_FORMS');
+    if (totalForms) {
+        const currentCount = parseInt(totalForms.value);
+        newRow.innerHTML = newRow.innerHTML.replace(/-\d+-/g, `-${currentCount}-`);
+        totalForms.value = currentCount + 1;
+    }
+    
+    tbody.appendChild(newRow);
+}
+</script>
+
+<!-- Подключаем Bootstrap Icons (если ещё не подключены) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<!-- Дополнительные стили для полей формы -->
+<style>
+    input[type="text"], input[type="date"], select, textarea {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 8px 12px;
+        width: 100%;
+        transition: border-color 0.3s;
+    }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        outline: none;
+    }
+    textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .card-header {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
