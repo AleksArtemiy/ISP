@@ -82,8 +82,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+Database
+https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # DATABASES = {
 #     'default': {
@@ -100,7 +100,6 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -143,3 +142,5 @@ STATICFILES_DIRS = [
 ]
 
 LOGIN_URL = '/login/'
+
+AUTH_USER_MODEL = 'accounts.User'
