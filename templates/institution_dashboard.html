@@ -1,64 +1,148 @@
-<!-- templates/institution_dashboard.html -->
 {% extends "base.html" %}
 {% load static %}
 
 {% block title %}{{ institution.name }} - Реестр предписаний{% endblock %}
 
 {% block content %}
-<a href="{% url 'committee_dashboard' %}" class="back-link">← Назад к дашборду комитета</a>
-
-<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap;">
-    <h3>📌 Реестр предписаний для {{ institution.name }}</h3>
+<div class="section-header">
+    <h2>📌 Реестр предписаний для {{ institution.name }}</h2>
     <div>
-        <button class="btn-primary" id="createPrescBtn">➕ Создать предписание</button>
+        <a href="{% url 'order_create' %}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
         <button class="btn-primary" id="createFundingBtn" style="background:#2b6e4f; margin-left:0.5rem;">💰 Заявка на финансирование</button>
     </div>
 </div>
 
-<div class="prescriptions-table-wrapper">
-    <table class="prescriptions-table">
-        <thead>
-            <tr><th>№ предписания</th><th>Надзорный орган</th><th>Срок исполнения</th><th>Статус</th><th>Нарушения</th><th>Действие</th></tr>
-        </thead>
-        <tbody>
-            {% for p in prescriptions %}
-            <tr>
-                <td>{{ p.number }}</td>
-                <td>{{ p.oversight }}</td>
-                <td>{{ p.due_date }}</td>
-                <td>
-                    <span class="status-badge 
-                        {% if p.status == 'overdue' %}status-overdue
-                        {% elif p.status == 'expiring' %}status-expiring
-                        {% elif p.status == 'completed' %}status-completed
-                        {% else %}status-pending{% endif %}">
-                        {% if p.status == 'overdue' %}Просрочено
-                        {% elif p.status == 'expiring' %}Истекает
-                        {% elif p.status == 'completed' %}Исполнено
-                        {% else %}В работе{% endif %}
-                    </span>
-                </td>
-                <td><ul class="violations-list">{% for v in p.violations %}<li>• {{ v }}</li>{% endfor %}</ul></td>
-                <td>{% if p.status != 'completed' %}<button class="btn-icon complete-presc" data-id="{{ p.id }}">✅ Исполнить</button>{% else %}✔️ Выполнено{% endif %}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="6">Нет предписаний</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Карточка статистики по учреждению (можно добавить) -->
+<div class="stats-grid" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-icon blue-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M8 3H16L21 8V21H3V3H8Z"/>
+            </svg>
+        </div>
+        <div class="stat-title">Всего предписаний</div>
+        <div class="stat-value">{{ prescriptions|length }}</div>
+        <div class="stat-subtitle">всего</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M8 12L11 15L16 9"/>
+            </svg>
+        </div>
+        <div class="stat-title">Исполнено</div>
+        <div class="stat-value">{{ completed_count|default:0 }}</div>
+        <div class="stat-subtitle">выполнено</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M12 9V13"/><path d="M12 17H12.01"/>
+                <path d="M10 3L2 17H22L14 3H10Z"/>
+            </svg>
+        </div>
+        <div class="stat-title">Просрочено</div>
+        <div class="stat-value">{{ overdue_count|default:0 }}</div>
+        <div class="stat-subtitle">требуют внимания</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <rect x="3" y="6" width="18" height="12" rx="2"/>
+            </svg>
+        </div>
+        <div class="stat-title">Финансирование</div>
+        <div class="stat-value" style="font-size:34px;">{{ institution.funding|floatformat:0 }} ₽</div>
+        <div class="stat-subtitle">текущий год</div>
+    </div>
 </div>
 
-<div class="funding-section">
+<!-- Таблица предписаний в стиле prescriptions.css -->
+<div class="table-wrapper">
+    <div class="table-header">
+        <div></div>
+        <div>№ Предписания</div>
+        <div>Надзорный орган</div>
+        <div>Срок исполнения</div>
+        <div>Статус выполнения</div>
+        <div>Ответственный</div>
+        <div>Действие</div>
+    </div>
+    {% for p in prescriptions %}
+    <div class="table-row" data-id="{{ p.id }}">
+        <div class="expand-btn">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M9 6L15 12L9 18"/>
+            </svg>
+        </div>
+        <div><a href="#" class="prescription-link">{{ p.number }}</a></div>
+        <div>{{ p.authority }}</div>
+        <div class="deadline">{{ p.due_date|date:"d.m.Y" }}</div>
+        <div class="status">
+            <div class="progress {% if p.status == 'completed' %}green{% else %}yellow{% endif %}">
+                <div class="fill {% if p.status == 'completed' %}green{% else %}yellow{% endif %}" style="width: {{ p.progress_percent|default:50 }}%"></div>
+            </div>
+            <div class="status-text {% if p.status == 'completed' %}green{% else %}yellow{% endif %}">
+                {% if p.status == 'overdue' %}Просрочено{% elif p.status == 'expiring' %}Истекает{% elif p.status == 'completed' %}Исполнено{% else %}В работе{% endif %}
+            </div>
+        </div>
+        <div class="responsible">{{ p.responsible }}</div>
+        <div>
+            {% if p.status != 'completed' %}
+                <form method="post" action="{% url 'complete_order' p.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-icon">✅ Исполнить</button>
+                </form>
+            {% else %}
+                ✔️ Выполнено
+            {% endif %}
+        </div>
+    </div>
+    <div class="expanded-content" id="content-{{ p.id }}">
+        <h3>Нарушения:</h3>
+        <ul class="violation-list">
+            {% for v in p.violations %}
+            <li>{{ v }}</li>
+            {% empty %}
+            <li>Нет нарушений</li>
+            {% endfor %}
+        </ul>
+        <button class="edit-btn" data-id="{{ p.id }}">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M12 20H21"/>
+                <path d="M16.5 3.5A2.1 2.1 0 0119.5 6.5L7 19L3 20L4 16L16.5 3.5Z"/>
+            </svg>
+        </button>
+    </div>
+    {% empty %}
+    <div class="table-row" style="grid-template-columns:1fr; text-align:center; padding:40px;">
+        Нет предписаний
+    </div>
+    {% endfor %}
+</div>
+
+<div class="funding-section" style="margin-top: 24px;">
     <strong>💰 Финансирование учреждения: {{ institution.funding|floatformat:0 }} ₽</strong>
     <div id="fundingRequestsList">(Заявки будут здесь)</div>
 </div>
 
+<!-- Скрипт для раскрытия строк (как в committee_dashboard) -->
 <script>
-    // Временные заглушки для кнопок
-    document.getElementById('createPrescBtn')?.addEventListener('click', () => alert('Форма создания предписания (будет реализована)'));
-    document.getElementById('createFundingBtn')?.addEventListener('click', () => alert('Форма заявки на финансирование (будет реализована)'));
-    document.querySelectorAll('.complete-presc').forEach(btn => {
-        btn.addEventListener('click', () => alert('Отметка предписания как исполненного (будет реализована)'));
+    document.querySelectorAll('.table-row').forEach(row => {
+        const expandBtn = row.querySelector('.expand-btn');
+        const id = row.getAttribute('data-id');
+        const content = document.getElementById(`content-${id}`);
+        if (!content) return;
+        const toggle = (e) => {
+            if (e.target.closest('.prescription-link') || e.target.closest('.edit-btn')) return;
+            row.classList.toggle('active');
+            content.classList.toggle('active');
+        };
+        row.addEventListener('click', toggle);
+        if (expandBtn) expandBtn.addEventListener('click', toggle);
     });
+    // Заглушки для кнопок
+    document.getElementById('createFundingBtn')?.addEventListener('click', () => alert('Форма заявки на финансирование (будет реализована)'));
 </script>
 {% endblock %}

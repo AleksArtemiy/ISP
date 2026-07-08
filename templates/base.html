@@ -1,38 +1,108 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>{% block title %}ИС "Реестр предписаний"{% endblock %}</title>
     {% load static %}
+    <!-- Общие стили -->
+    <link rel="stylesheet" href="{% static 'css/committee_dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/prescriptions.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <!-- Блок для дополнительных стилей (если нужно) -->
+    {% block extra_css %}{% endblock %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="logo-area">
-                <h1>📋 Реестр предписаний</h1>
-                <p>Новгородский муниципальный округ</p>
+<div class="wrapper">
+    <!-- ========== ХЕДЕР (как в committee_dashboard) ========== -->
+     {% if user.is_authenticated %}
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="logo">📄</div>
+                <div class="system-info">
+                    <h1>Система учёта предписаний</h1>
+                    <p>Надзорные органы • Новгородская область</p>
+                </div>
             </div>
-            {% if user.is_authenticated %}
-            <div class="user-bar">
-                <span class="role-badge">{{ user.get_role_display }}</span>
-                <form action="{% url 'logout' %}" method="post" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-logout">Выйти</button>
-                </form>
+            <div class="topbar-center">
+                <div class="search-box">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <circle cx="11" cy="11" r="7"/>
+                        <path d="M20 20L17 17"/>
+                    </svg>
+                    <input type="text" id="globalSearch" placeholder="Поиск по учреждениям, предписаниям...">
+                </div>
             </div>
-            {% endif %}
+            <div class="topbar-right">
+                <div class="committee">Комитет образования</div>
+                <div class="notification">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M15 17H5L7 14V10A5 5 0 0117 10V14L19 17H15Z"/>
+                    </svg>
+                    <div class="notification-dot"></div>
+                </div>
+                <div class="divider"></div>
+                <div class="profile" id="profileBtn">
+                    <div class="avatar">АП</div>
+                    <div class="profile-info">
+                        <h3>{{ user.get_full_name|default:"Петров А.И." }}</h3>
+                        <span>{{ user_role|default:"Администратор" }}</span>
+                    </div>
+                    <svg class="dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M6 9L12 15L18 9"/>
+                    </svg>
+                    <div class="profile-dropdown" id="dropdown">
+                        <button>Профиль</button>
+                        <button>Настройки</button>
+                        <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" style="width:100%;height:42px;border:none;background:transparent;border-radius:10px;text-align:left;padding:0 14px;cursor:pointer;font-size:14px;">Выйти</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </header>
+    {% endif %}
 
-        <main class="main-content">
-            {% block content %}
-            {% endblock %}
-        </main>
-    </div>
+    <!-- ========== ОСНОВНОЙ КОНТЕНТ ========== -->
+    <main class="main">
+        <!-- Блок для вывода сообщений (если нужно) -->
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</div>
 
-    <!-- Подключение JS -->
-    
+<!-- Скрипты -->
+<script>
+    // Переключение выпадающего меню профиля
+    document.getElementById('profileBtn')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        document.getElementById('dropdown').classList.toggle('active');
+    });
+    document.addEventListener('click', function() {
+        document.getElementById('dropdown')?.classList.remove('active');
+    });
+    // Глобальный поиск (можно вынести в отдельный файл)
+    const globalSearch = document.getElementById('globalSearch');
+    if (globalSearch) {
+        globalSearch.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            // Поиск по карточкам и строкам таблицы (если они есть на странице)
+            document.querySelectorAll('.school-card, .table-row:not(.expanded-content)').forEach(el => {
+                const text = el.innerText.toLowerCase();
+                el.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    }
+</script>
+<!-- Блок для дополнительных скриптов -->
+{% block extra_js %}{% endblock %}
 </body>
 </html>
