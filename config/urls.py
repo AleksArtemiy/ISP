@@ -28,4 +28,5 @@ urlpatterns = [
     path('institution/<int:institution_id>/', institution_dashboard, name='institution_dashboard'),
     path('prescriptions/', include('apps.prescriptions.urls')),
     path('accounts/', include('apps.accounts.urls')),  
+    path('admin-panel/', include('apps.admin_panel.urls')),
 ]

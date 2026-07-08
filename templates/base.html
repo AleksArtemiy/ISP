@@ -15,6 +15,9 @@
 </head>
 <body>
 <div class="wrapper">
+    {% if user.is_superuser %}
+    <a href="{% url 'admin_panel' %}" class="committee" style="text-decoration: none; background: #fef9c3; border-color: #facc15; color: #854d0e;">⚙️ Управление</a>
+    {% endif %}
     <!-- ========== ХЕДЕР (как в committee_dashboard) ========== -->
      {% if user.is_authenticated %}
         <header class="topbar">

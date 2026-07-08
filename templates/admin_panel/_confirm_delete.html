@@ -1,0 +1,11 @@
+<div style="text-align:center; padding:1rem 0;">
+    <h3>Удалить {{ type }}?</h3>
+    <p>Вы уверены, что хотите удалить <strong>{{ object.short_name|default:object }}</strong>?</p>
+    <form method="post" action="{{ request.path }}">
+        {% csrf_token %}
+        <div style="display:flex; gap:1rem; justify-content:center; margin-top:1.5rem;">
+            <button type="submit" class="admin-btn admin-btn-danger">Да, удалить</button>
+            <button type="button" class="admin-btn admin-btn-secondary" onclick="closeModal()">Отмена</button>
+        </div>
+    </form>
+</div>

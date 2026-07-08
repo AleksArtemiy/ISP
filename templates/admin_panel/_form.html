@@ -1,0 +1,19 @@
+{% load static %}
+<div class="admin-form-card">
+    <form method="post" action="{{ request.path }}">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="form-group">
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.errors %}
+                <div style="color:#dc2626; font-size:0.85rem;">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <div class="admin-form-actions">
+            <button type="submit" class="admin-btn admin-btn-primary">Сохранить</button>
+            <button type="button" class="admin-btn admin-btn-secondary" onclick="closeModal()">Отмена</button>
+        </div>
+    </form>
+</div>

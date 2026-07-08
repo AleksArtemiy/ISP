@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Управление системой{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/committee_dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/prescriptions.css' %}">
+    <link rel="stylesheet" href="{% static 'css/admin_panel.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="admin-wrapper">
+    <!-- Верхняя панель (упрощённая) -->
+    <header class="admin-header">
+        <div class="admin-header-left">
+            <div class="logo-icon">⚙️</div>
+            <h1>Управление системой</h1>
+        </div>
+        <div class="admin-header-right">
+            <a href="{% url 'committee_dashboard' %}" class="btn-back">← На дашборд</a>
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-logout-admin">Выйти</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>
