@@ -1,5 +1,382 @@
 {% extends 'base.html' %}
 
+{% load static %}
+{% block extra_css %}
+    <style>
+        /* ---------- Основные переменные ---------- */
+        :root {
+            --primary: #0f3b5c;
+            --primary-light: #e6f0f9;
+            --primary-dark: #0a2a42;
+            --success: #16a34a;
+            --danger: #ef4444;
+            --warning: #d97706;
+            --gray-100: #f8fafc;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-600: #64748b;
+            --gray-800: #1e293b;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+            --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
+            --radius-xl: 24px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+        }
+
+        .form-page {
+            padding: 2rem 1rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .form-card {
+            background: #fff;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-200);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .form-card:hover {
+            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+        }
+
+        .form-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 1.8rem 2rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .form-header h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .form-header .subtitle {
+            font-size: 0.95rem;
+            opacity: 0.85;
+            margin-left: auto;
+            background: rgba(255,255,255,0.15);
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+        }
+
+        .form-body {
+            padding: 2rem;
+        }
+
+        /* ---------- Секции ---------- */
+        .section {
+            margin-bottom: 2rem;
+            background: var(--gray-100);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            border: 1px solid var(--gray-200);
+            transition: border-color 0.2s;
+        }
+
+        .section:hover {
+            border-color: var(--primary);
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title i {
+            color: var(--primary);
+            font-size: 1.3rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        .form-row.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--gray-800);
+            margin-bottom: 0.4rem;
+            letter-spacing: -0.3px;
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+            margin-left: 0.2rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            background: #fff;
+            transition: all 0.25s ease;
+            outline: none;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(15, 59, 92, 0.12);
+            background: #fff;
+        }
+
+        .form-control::placeholder {
+            color: var(--gray-300);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 12px;
+            padding-right: 2.5rem;
+        }
+
+        .help-text {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+            margin-top: 0.3rem;
+        }
+
+        /* ---------- Таблица нарушений ---------- */
+        .violation-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 0.5rem;
+        }
+
+        .violation-table th {
+            padding: 0.5rem 0.75rem;
+            font-weight: 600;
+            color: var(--gray-600);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .violation-table td {
+            padding: 0.25rem 0.75rem;
+            background: #fff;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.2s;
+        }
+
+        .violation-table tr:hover td {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        .violation-table td:first-child {
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+        }
+        .violation-table td:last-child {
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            text-align: center;
+        }
+
+        .violation-input {
+            border: none;
+            background: transparent;
+            padding: 0.6rem 0.2rem;
+            width: 100%;
+            font-size: 0.95rem;
+            outline: none;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .violation-input:focus {
+            border-bottom-color: var(--primary);
+        }
+
+        .remove-violation {
+            background: none;
+            border: none;
+            color: var(--gray-300);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.15s;
+            padding: 0.2rem 0.5rem;
+        }
+
+        .remove-violation:hover {
+            color: var(--danger);
+            transform: scale(1.2);
+        }
+
+        /* ---------- Файлы ---------- */
+        .file-upload-area {
+            border: 2px dashed var(--gray-200);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            text-align: center;
+            background: #fafbfc;
+            transition: border-color 0.3s, background 0.3s;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .file-upload-area i {
+            font-size: 2.5rem;
+            color: var(--primary);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-upload-area input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-area .upload-label {
+            font-weight: 600;
+            color: var(--primary);
+            cursor: pointer;
+        }
+
+        .file-list {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .file-item {
+            background: var(--gray-100);
+            padding: 0.3rem 0.8rem;
+            border-radius: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            border: 1px solid var(--gray-200);
+        }
+
+        .file-item i {
+            color: var(--primary);
+        }
+
+        /* ---------- Кнопки ---------- */
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .btn {
+            padding: 0.6rem 2rem;
+            border-radius: 40px;
+            font-weight: 600;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(15, 59, 92, 0.25);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(15, 59, 92, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--gray-600);
+            border: 1px solid var(--gray-200);
+        }
+
+        .btn-outline:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-300);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+            transform: translateY(-2px);
+        }
+
+        /* ---------- Анимация добавления/удаления ---------- */
+        .violation-row-enter {
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---------- Адаптив ---------- */
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .form-row.three { grid-template-columns: 1fr; }
+            .form-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .form-header .subtitle {
+                margin-left: 0;
+            }
+            .actions {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+            .actions .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -13,7 +390,7 @@
                 </div>
 
                 <div class="card-body p-4">
-                    <form method="post" id="orderForm">
+                    <form method="post" id="orderForm" enctype="multipart/form-data">
                         {% csrf_token %}
 
                         <!-- Основная информация -->
@@ -48,20 +425,9 @@
                                     </div>
                                 </div>
 
-                                <div class="row g-3 mt-2">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Ответственный сотрудник</label>
-                                        {{ form.responsible_employee }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Статус</label>
-                                        {{ form.status }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Год</label>
-                                        {{ form.year }}
-                                    </div>
-                                </div>
+                                <!-- Скрытые поля: ответственный и статус -->
+                                {{ form.responsible_employee.as_hidden }}
+                                {{ form.status.as_hidden }}
                             </div>
                         </div>
 
@@ -83,18 +449,62 @@
                                         <tbody>
                                             {% for form in violation_formset %}
                                             <tr>
-                                                <td>{{ form.description }}</td>
-                                                <td class="text-center">{{ form.DELETE }}</td>
+                                                <td>
+                                                    <!-- Поле с автодополнением -->
+                                                    <input type="text" 
+                                                           name="{{ form.prefix }}-description" 
+                                                           id="{{ form.prefix }}-description"
+                                                           class="form-control violation-input" 
+                                                           list="violationList"
+                                                           placeholder="Введите нарушение..."
+                                                           value="{{ form.description.value|default:'' }}">
+                                                </td>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
+                                                        <i class="bi bi-trash3"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
+                                <!-- Datalist с возможными нарушениями (загружается из базы) -->
+                                <datalist id="violationList">
+                                    {% for violation in violation_options %}
+                                        <option value="{{ violation }}"></option>
+                                    {% endfor %}
+                                </datalist>
                                 <div class="text-end mt-2">
-                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="addViolation()">
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="addViolationBtn">
                                         <i class="bi bi-plus-lg"></i> Добавить нарушение
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Прикрепление файлов -->
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light fw-bold text-primary">
+                                <i class="bi bi-paperclip me-2"></i> Прикреплённые файлы
+                            </div>
+                            <div class="card-body bg-white">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Добавить файлы (макс. 5)</label>
+                                    <input type="file" name="attachments" multiple class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
+                                    <small class="text-muted">Допустимые форматы: PDF, Word, Excel, изображения. Не более 5 файлов.</small>
+                                </div>
+                                <!-- Если есть уже прикреплённые файлы (при редактировании) – вывести список -->
+                                {% if attachments %}
+                                <div class="mt-3">
+                                    <p class="fw-bold">Загруженные файлы:</p>
+                                    <ul class="list-unstyled">
+                                        {% for att in attachments %}
+                                        <li><a href="{{ att.file.url }}" target="_blank">{{ att.file.name }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
 
@@ -114,34 +524,120 @@
     </div>
 </div>
 
-<!-- Скрипт для добавления строк нарушений -->
-<script>
-function addViolation() {
-    const table = document.getElementById('violationsTable');
-    const tbody = table.querySelector('tbody');
-    const lastRow = tbody.querySelector('tr:last-child');
-    const newRow = lastRow.cloneNode(true);
-    
-    // Очищаем значения
-    newRow.querySelector('textarea').value = '';
-    newRow.querySelector('input[type="checkbox"]').checked = false;
-    
-    // Обновляем индексы (если используется formset)
-    const totalForms = document.querySelector('#id_violations-TOTAL_FORMS');
-    if (totalForms) {
-        const currentCount = parseInt(totalForms.value);
-        newRow.innerHTML = newRow.innerHTML.replace(/-\d+-/g, `-${currentCount}-`);
-        totalForms.value = currentCount + 1;
-    }
-    
-    tbody.appendChild(newRow);
-}
-</script>
-
-<!-- Подключаем Bootstrap Icons (если ещё не подключены) -->
+<!-- Подключаем Bootstrap Icons и дополнительные скрипты -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-<!-- Дополнительные стили для полей формы -->
+<!-- Скрипт для добавления/удаления нарушений и автодополнения -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('violationsTable');
+    const tbody = table.querySelector('tbody');
+    const addBtn = document.getElementById('addViolationBtn');
+
+    // Функция обновления индексов формсета
+    function updateFormIndexes() {
+        const totalFormsInput = document.querySelector('#id_violations-TOTAL_FORMS');
+        if (!totalFormsInput) return;
+        const rows = tbody.querySelectorAll('tr');
+        totalFormsInput.value = rows.length;
+
+        rows.forEach((row, idx) => {
+            // Обновляем атрибуты name и id у всех элементов внутри строки
+            const inputs = row.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/violations-\d+-/, `violations-${idx}-`);
+                    input.setAttribute('name', newName);
+                }
+                const id = input.getAttribute('id');
+                if (id) {
+                    const newId = id.replace(/violations-\d+-/, `violations-${idx}-`);
+                    input.setAttribute('id', newId);
+                }
+            });
+            // Также для label (если есть)
+        });
+    }
+
+    // Функция создания новой строки
+    function createViolationRow() {
+        const totalForms = document.querySelector('#id_violations-TOTAL_FORMS');
+        const currentCount = parseInt(totalForms.value);
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>
+                <input type="text" 
+                       name="violations-${currentCount}-description" 
+                       id="violations-${currentCount}-description"
+                       class="form-control violation-input" 
+                       list="violationList"
+                       placeholder="Введите нарушение...">
+                <input type="hidden" name="violations-${currentCount}-DELETE" id="violations-${currentCount}-DELETE">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </td>
+        `;
+        return newRow;
+    }
+
+    // Добавление новой строки
+    addBtn.addEventListener('click', function() {
+        const newRow = createViolationRow();
+        tbody.appendChild(newRow);
+        updateFormIndexes();
+    });
+
+    // Удаление строки (через делегирование)
+    tbody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.remove-violation');
+        if (!btn) return;
+        const row = btn.closest('tr');
+        // Если строка только одна – можно запретить удаление, либо пометить на удаление
+        if (tbody.querySelectorAll('tr').length > 1) {
+            // Помечаем на удаление: устанавливаем hidden-поле DELETE = true
+            const deleteInput = row.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.value = 'on';
+                row.style.display = 'none'; // скрываем
+            } else {
+                row.remove();
+            }
+            updateFormIndexes();
+        } else {
+            // Если осталась одна строка, просто очищаем поле
+            const input = row.querySelector('.violation-input');
+            if (input) input.value = '';
+        }
+    });
+
+    // Автодополнение: уже работает через datalist, ничего дополнительно не нужно
+
+    // При инициализации обновляем индексы, если есть существующие строки
+    updateFormIndexes();
+
+    // Обработка отправки формы – убедимся, что скрытые поля status и responsible заполнены
+    const form = document.getElementById('orderForm');
+    form.addEventListener('submit', function(e) {
+        // Можно добавить валидацию, если нужно
+        // Например, проверка, что хотя бы одно нарушение добавлено
+        const violationInputs = document.querySelectorAll('.violation-input');
+        let hasNonEmpty = false;
+        violationInputs.forEach(inp => {
+            if (inp.value.trim() !== '') hasNonEmpty = true;
+        });
+        if (!hasNonEmpty) {
+            e.preventDefault();
+            alert('Добавьте хотя бы одно нарушение.');
+        }
+    });
+});
+</script>
+
+<!-- Дополнительные стили -->
 <style>
     input[type="text"], input[type="date"], select, textarea {
         border-radius: 8px;
@@ -161,6 +657,13 @@ function addViolation() {
     }
     .card-header {
         border-bottom: none;
+    }
+    .violation-input {
+        min-width: 100%;
+        background: #fff;
+    }
+    .remove-violation {
+        padding: 2px 8px;
     }
 </style>
 {% endblock %}

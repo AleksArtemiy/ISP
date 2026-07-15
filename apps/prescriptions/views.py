@@ -3,8 +3,19 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy
-from .models import Order
+from .models import Order, Status
 from .forms import OrderForm, ViolationFormSet
+
+@login_required
+def complete_order(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    # Ищем статус "Выполнено" или создаём, если его нет
+    completed_status, created = Status.objects.get_or_create(name='Выполнено')
+    order.status = completed_status
+    order.save()
+    messages.success(request, f'Предписание {order.order_number} отмечено как выполненное.')
+    # Перенаправляем обратно на страницу учреждения
+    return redirect('institution_dashboard', institution_id=order.institution.id)
 
 class OrderListView(ListView):
     model = Order
