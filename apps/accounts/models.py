@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
+# class Role(models.Model):
+#     name:
+
 class UserManager(BaseUserManager):
     """
     Менеджер для кастомной модели пользователя.
