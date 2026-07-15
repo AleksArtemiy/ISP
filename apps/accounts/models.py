@@ -1,8 +1,60 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
-# class Role(models.Model):
-#     name:
+
+class Role(models.Model):
+    """
+    Модель роли, связанная с таблицей 'roles' в БД.
+    
+    Атрибуты:
+        id (int): Первичный ключ.
+        name (str): Название роли.
+    """
+    
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100)
+    
+    class Meta:
+        db_table = 'roles'
+        managed = False
+        verbose_name = 'Роль'
+        verbose_name_plural = 'Роли'
+    
+    def __str__(self) -> str:
+        return self.name
+
+
+class Institution(models.Model):
+    """
+    Модель учреждения, связанная с таблицей 'institutions' в БД.
+    
+    Атрибуты:
+        id (int): Первичный ключ.
+        name (str): Полное имя учреждения.
+        short_name (str): Краткое имя учреждения.
+        address (str): Адрес учреждения.
+        institution_type_id (int): ID типа учреждения.
+        created_at (datetime): Дата создания.
+        updated_at (datetime): Дата последнего обновления.
+    """
+    
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    short_name = models.CharField(max_length=100)
+    address = models.TextField(db_column='adress')  # соответствует существующему столбцу с опечаткой
+    institution_type_id = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'institutions'
+        managed = False
+        verbose_name = 'Учреждение'
+        verbose_name_plural = 'Учреждения'
+    
+    def __str__(self) -> str:
+        return self.short_name
+
 
 class UserManager(BaseUserManager):
     """
@@ -79,11 +131,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=255)
     first_name = models.CharField(max_length=255)
     patronymic = models.CharField(max_length=255, blank=True, null=True)
-    email = models.EmailField(unique=True, blank=False, null=False)  # сделаем обязательным
+    email = models.EmailField(unique=True, blank=False, null=False)
     phone = models.CharField(max_length=30, blank=True, null=True)
-    password = models.CharField(max_length=255, db_column='password_hash')  # используем существующее поле
-    role = models.ForeignKey('roles.Role', on_delete=models.PROTECT, null=True, blank=True)
-    institution = models.ForeignKey('institutions.Institution', on_delete=models.SET_NULL, null=True, blank=True)
+    password = models.CharField(max_length=255, db_column='password_hash')
+    role = models.ForeignKey(Role, on_delete=models.PROTECT, null=True, blank=True, default=None)
+    institution = models.ForeignKey(Institution, on_delete=models.SET_NULL, null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -94,12 +146,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Менеджер
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'   # логин по email
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['last_name', 'first_name']
 
     class Meta:
-        db_table = 'users' # имя существубщей таблицы
-        managed = False # не создавать и не изменять таблицу
+        db_table = 'users'
+        managed = False
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
