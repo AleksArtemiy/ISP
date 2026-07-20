@@ -73,7 +73,7 @@ def generate_prescriptions():
             "progress_percent": status_info["progress"],
             "status_class": status_info["class"],
             "status_text": status_info["text"],
-            "responsible": f"Ответственный {random.choice(['Иванов','Петрова','Сидоров','Кузнецова','Смирнов'])}",
+            "responsible": f" {random.choice(['Иванов','Петров','Сидоров','Кузнецов','Смирнов'])} {random.choice(['П.','И.','Р.','А.','М.'])}{random.choice(['П.','И.','Р.','А.','М.'])}",
             "violations": get_violations(i),
         }
         prescs.append(presc)

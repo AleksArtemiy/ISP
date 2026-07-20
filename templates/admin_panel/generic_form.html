@@ -3,7 +3,6 @@
 
 {% block content %}
 <div class="admin-form-card">
-    <h2 style="margin-bottom:1.5rem;">{{ title }}</h2>
     <form method="post">
         {% csrf_token %}
         {% for field in form %}
@@ -17,7 +16,7 @@
         {% endfor %}
         <div class="admin-form-actions">
             <button type="submit" class="admin-btn admin-btn-primary">Сохранить</button>
-            <a href="{% url 'admin_panel' %}" class="admin-btn admin-btn-secondary">Отмена</a>
+            <a href="{% url 'admin_panel:admin_panel' %}" class="admin-btn admin-btn-secondary">Отмена</a>
         </div>
     </form>
 </div>

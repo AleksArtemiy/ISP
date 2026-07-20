@@ -5,18 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>{% block title %}ИС "Реестр предписаний"{% endblock %}</title>
     {% load static %}
-    <!-- Общие стили -->
     <link rel="stylesheet" href="{% static 'css/committee_dashboard.css' %}">
     <link rel="stylesheet" href="{% static 'css/prescriptions.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <!-- Блок для дополнительных стилей (если нужно) -->
     {% block extra_css %}{% endblock %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="wrapper">
     {% if user.is_superuser %}
-    <a href="{% url 'admin_panel' %}" class="committee" style="text-decoration: none; background: #fef9c3; border-color: #facc15; color: #854d0e;">⚙️ Управление</a>
+    <a href="{% url 'admin_panel:admin_panel' %}" class="committee" style="text-decoration: none; background: #fef9c3; border-color: #facc15; color: #854d0e;">⚙️ Управление</a>
     {% endif %}
     <!-- ========== ХЕДЕР (как в committee_dashboard) ========== -->
      {% if user.is_authenticated %}
@@ -106,6 +104,9 @@
     }
 </script>
 <!-- Блок для дополнительных скриптов -->
+<script src="{% static 'js/profile_dropdown.js' %}"></script>
+<script src="{% static 'js/global_search.js' %}"></script>
+<script src="{% static 'js/table_expand.js' %}"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
