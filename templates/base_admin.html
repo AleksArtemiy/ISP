@@ -13,6 +13,7 @@
 <body>
 <div class="admin-wrapper">
     <!-- Верхняя панель (упрощённая) -->
+     {% if not request.GET.modal %}
     <header class="admin-header">
         <div class="admin-header-left">
             <div class="logo-icon">⚙️</div>
@@ -26,7 +27,7 @@
             </form>
         </div>
     </header>
-
+    {% endif %}
     <main class="admin-main">
         {% block content %}{% endblock %}
     </main>

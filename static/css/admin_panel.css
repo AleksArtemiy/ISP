@@ -34,9 +34,7 @@ body {
 }
 
 /* ===== ХЕДЕР (как topbar) ===== */
-.admin-wrapper {
-    min-height: 100vh;
-}
+
 
 .admin-header {
     width: 100%;

@@ -10,49 +10,42 @@
         <a href="?tab=institutions" class="action-link">Управлять</a>
     </div>
     <div class="admin-stat-card">
-        <div class="number">{{ employees.count }}</div>
-        <div class="label">Сотрудники</div>
-        <a href="?tab=employees" class="action-link">Управлять</a>
+        <div class="number">{{ users.count }}</div>
+        <div class="label">Пользователи</div>
+        <a href="?tab=users" class="action-link">Управлять</a>
     </div>
     <div class="admin-stat-card">
         <div class="number">{{ authorities.count }}</div>
         <div class="label">Надзорные органы</div>
         <a href="?tab=authorities" class="action-link">Управлять</a>
     </div>
-    <div class="admin-stat-card">
-        <div class="number">{{ statuses.count }}</div>
-        <div class="label">Статусы</div>
-        <a href="?tab=statuses" class="action-link">Управлять</a>
-    </div>
 </div>
 
 <!-- Табы -->
 <div class="admin-tabs">
     <button class="admin-tab active" data-tab="institutions">🏫 Учреждения</button>
-    <button class="admin-tab" data-tab="employees">👤 Сотрудники</button>
+    <button class="admin-tab" data-tab="users">👤 Пользователи</button>
     <button class="admin-tab" data-tab="authorities">🏛️ Надзорные органы</button>
-    <button class="admin-tab" data-tab="statuses">📌 Статусы</button>
 </div>
 
-<!-- Контент табов -->
 <div class="tab-content">
     <!-- Учреждения -->
     <div class="tab-pane active" id="tab-institutions">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h3>Все учреждения</h3>
-            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать учреждение', '{% url 'admin_institution_create' %}')">➕ Добавить</button>
+            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать учреждение', '{% url 'admin_panel:admin_institution_create' %}')">➕ Добавить</button>
         </div>
         <div class="admin-table-wrapper">
-            <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1fr 0.8fr 0.8fr;">
-                <div>Название</div><div>Тип</div><div>Финансирование</div><div></div><div></div>
+            <div class="admin-table-header" style="grid-template-columns: 2fr 1fr 1.5fr 0.8fr 0.8fr;">
+                <div>Название</div><div>Краткое</div><div>Тип</div><div></div><div></div>
             </div>
             {% for inst in institutions %}
-            <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1fr 0.8fr 0.8fr;">
-                <div>{{ inst.full_name }}</div>
-                <div>{{ inst.get_type_display }}</div>
-                <div>{{ inst.funding|floatformat:0 }} ₽</div>
-                <div><button class="admin-btn-icon" onclick="openModal('Редактировать учреждение', '{% url 'admin_institution_edit' inst.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_institution_delete' inst.pk %}')">🗑️</button></div>
+            <div class="admin-table-row" style="grid-template-columns: 2fr 1fr 1.5fr 0.8fr 0.8fr;">
+                <div>{{ inst.name }}</div>
+                <div>{{ inst.short_name }}</div>
+                <div>{{ inst.institution_type.name|default:"—" }}</div>
+                <div><button class="admin-btn-icon" onclick="openModal('Редактировать учреждение', '{% url 'admin_panel:admin_institution_edit' inst.pk %}')">✏️</button></div>
+                <div><button class="admin-btn-icon" onclick="openModal('Редактировать учреждение', '{% url 'admin_panel:admin_institution_edit' inst.pk %}')">🗑️</button></div>
             </div>
             {% empty %}
             <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет учреждений</div>
@@ -60,26 +53,27 @@
         </div>
     </div>
 
-    <!-- Сотрудники -->
-    <div class="tab-pane" id="tab-employees">
+    <!-- Пользователи (вместо сотрудников) -->
+    <div class="tab-pane" id="tab-users">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3>Все сотрудники</h3>
-            <button class="admin-btn admin-btn-primary" onclick="openModal('Добавить сотрудника', '{% url 'admin_employee_create' %}')">➕ Добавить</button>
+            <h3>Все пользователи</h3>
+            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать пользователя', '{% url 'admin_panel:admin_user_create' %}')">➕ Добавить</button>
         </div>
         <div class="admin-table-wrapper">
-            <div class="admin-table-header" style="grid-template-columns: 1.5fr 1.5fr 1fr 0.8fr 0.8fr;">
-                <div>ФИО</div><div>Должность</div><div>Учреждение</div><div></div><div></div>
+            <div class="admin-table-header" style="grid-template-columns: 1.5fr 1.5fr 1fr 1fr 0.8fr 0.8fr;">
+                <div>ФИО</div><div>Email</div><div>Учреждение</div><div>Роль</div><div></div><div></div>
             </div>
-            {% for emp in employees %}
-            <div class="admin-table-row" style="grid-template-columns: 1.5fr 1.5fr 1fr 0.8fr 0.8fr;">
-                <div>{{ emp.full_name }}</div>
-                <div>{{ emp.position }}</div>
-                <div>{{ emp.institution.short_name }}</div>
-                <div><button class="admin-btn-icon" onclick="openModal('Редактировать сотрудника', '{% url 'admin_employee_edit' emp.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_employee_delete' emp.pk %}')">🗑️</button></div>
+            {% for u in users %}
+            <div class="admin-table-row" style="grid-template-columns: 1.5fr 1.5fr 1fr 1fr 0.8fr 0.8fr;">
+                <div>{{ u.get_full_name|default:"—" }}</div>
+                <div>{{ u.email }}</div>
+                <div>{{ u.institution.short_name|default:"—" }}</div>
+                <div>{{ u.role.name|default:"—" }}</div>
+                <div><button class="admin-btn-icon" onclick="openModal('Редактировать пользователя', '{% url 'admin_panel:admin_user_edit' u.pk %}')">✏️</button></div>
+                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_panel:admin_user_delete' u.pk %}')">🗑️</button></div>
             </div>
             {% empty %}
-            <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет сотрудников</div>
+            <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет пользователей</div>
             {% endfor %}
         </div>
     </div>
@@ -88,7 +82,7 @@
     <div class="tab-pane" id="tab-authorities">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h3>Надзорные органы</h3>
-            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать надзорный орган', '{% url 'admin_authority_create' %}')">➕ Добавить</button>
+            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать надзорный орган', '{% url 'admin_panel:admin_authority_create' %}')">➕ Добавить</button>
         </div>
         <div class="admin-table-wrapper">
             <div class="admin-table-header" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
@@ -97,39 +91,17 @@
             {% for auth in authorities %}
             <div class="admin-table-row" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
                 <div>{{ auth.name }}</div>
-                <div><button class="admin-btn-icon" onclick="openModal('Редактировать надзорный орган', '{% url 'admin_authority_edit' auth.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_authority_delete' auth.pk %}')">🗑️</button></div>
+                <div><button class="admin-btn-icon" onclick="openModal('Редактировать надзорный орган', '{% url 'admin_panel:admin_authority_edit' auth.pk %}')">✏️</button></div>
+                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_panel:admin_authority_delete' auth.pk %}')">🗑️</button></div>
             </div>
             {% empty %}
             <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет надзорных органов</div>
             {% endfor %}
         </div>
     </div>
-
-    <!-- Статусы -->
-    <div class="tab-pane" id="tab-statuses">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3>Статусы</h3>
-            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать статус', '{% url 'admin_status_create' %}')">➕ Добавить</button>
-        </div>
-        <div class="admin-table-wrapper">
-            <div class="admin-table-header" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
-                <div>Название</div><div></div><div></div>
-            </div>
-            {% for st in statuses %}
-            <div class="admin-table-row" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
-                <div>{{ st.name }}</div>
-                <div><button class="admin-btn-icon" onclick="openModal('Редактировать статус', '{% url 'admin_status_edit' st.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_status_delete' st.pk %}')">🗑️</button></div>
-            </div>
-            {% empty %}
-            <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет статусов</div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
 
-<!-- Модальное окно -->
+<!-- Модальное окно (остаётся без изменений) -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box" id="modalBox">
         <div class="modal-header">

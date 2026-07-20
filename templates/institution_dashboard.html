@@ -7,7 +7,7 @@
 <div class="section-header">
     <h2>📌 Реестр предписаний для {{ institution.name }}</h2>
     <div>
-        <a href="{% url 'order_create' %}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
+        <a href="{% url 'prescriptions:order_create' %}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
         <button class="btn-primary" id="createFundingBtn" style="background:#2b6e4f; margin-left:0.5rem;">💰 Заявка на финансирование</button>
     </div>
 </div>
@@ -90,7 +90,7 @@
         <div class="responsible">{{ p.responsible }}</div>
         <div>
             {% if p.status != 'completed' %}
-                <form method="post" action="{% url 'complete_order' p.id %}" style="display:inline;">
+                <form method="post" action="{% url 'prescriptions:complete_order' p.id %}" style="display:inline;">
                     {% csrf_token %}
                     <button type="submit" class="btn-icon">✅ Исполнить</button>
                 </form>

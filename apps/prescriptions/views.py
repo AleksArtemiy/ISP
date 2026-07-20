@@ -1,32 +1,37 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy
-from .models import Order, Status
+from .models import Order
 from .forms import OrderForm, ViolationFormSet
+
 
 @login_required
 def complete_order(request, pk):
     order = get_object_or_404(Order, pk=pk)
-    # Ищем статус "Выполнено" или создаём, если его нет
-    completed_status, created = Status.objects.get_or_create(name='Выполнено')
-    order.status = completed_status
+    order.status = 'COMPLETED'
     order.save()
-    messages.success(request, f'Предписание {order.order_number} отмечено как выполненное.')
+    messages.success(request, f'Предписание {order.number} отмечено как выполненное.')
     # Перенаправляем обратно на страницу учреждения
-    return redirect('institution_dashboard', institution_id=order.institution.id)
+    return redirect('institutions:detail', pk=order.institution.id)
+
 
 class OrderListView(ListView):
     model = Order
     template_name = 'prescriptions/order_list.html'
     context_object_name = 'orders'
 
+    def get_queryset(self):
+        # Можно добавить фильтры или сортировку
+        return Order.objects.select_related('institution', 'authority', 'created_by_user').all()
+
+
 class OrderCreateView(CreateView):
     model = Order
     form_class = OrderForm
     template_name = 'prescriptions/order_form.html'
-    success_url = reverse_lazy('order_list')
+    success_url = reverse_lazy('prescriptions:order_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -42,17 +47,20 @@ class OrderCreateView(CreateView):
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
             order = form.save()
+            # Сохраняем нарушения через промежуточную таблицу
             violation_formset.instance = order
             violation_formset.save()
-            messages.success(self.request, f'Предписание {order.order_number} успешно создано!')
-            return redirect('order_list')
+            messages.success(self.request, f'Предписание {order.number} успешно создано!')
+            return redirect(self.success_url)
         else:
             return self.render_to_response(self.get_context_data(form=form))
+
 
 class OrderUpdateView(UpdateView):
     model = Order
     form_class = OrderForm
     template_name = 'prescriptions/order_form.html'
+    success_url = reverse_lazy('prescriptions:order_list')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -60,7 +68,7 @@ class OrderUpdateView(UpdateView):
             context['violation_formset'] = ViolationFormSet(self.request.POST, instance=self.object)
         else:
             context['violation_formset'] = ViolationFormSet(instance=self.object)
-        context['title'] = f'Редактирование предписания {self.object.order_number}'
+        context['title'] = f'Редактирование предписания {self.object.number}'
         return context
 
     def form_valid(self, form):
@@ -68,8 +76,9 @@ class OrderUpdateView(UpdateView):
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
             order = form.save()
+            violation_formset.instance = order
             violation_formset.save()
-            messages.success(self.request, f'Предписание {order.order_number} обновлено!')
-            return redirect('order_list')
+            messages.success(self.request, f'Предписание {order.number} обновлено!')
+            return redirect(self.success_url)
         else:
             return self.render_to_response(self.get_context_data(form=form))

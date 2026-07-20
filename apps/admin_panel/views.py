@@ -1,12 +1,26 @@
 # apps/admin_panel/views.py
+"""
+Представления для панели администратора.
+
+Обеспечивают CRUD-операции для управления:
+    - учреждениями (Institution)
+    - пользователями (User)
+    - надзорными органами (SupervisoryAuthority)
+
+Все представления доступны только суперпользователям (is_superuser=True).
+Поддерживают работу через модальные окна (AJAX) и обычные GET/POST-запросы.
+"""
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from apps.institutions.models import Institution, Employee
-from apps.prescriptions.models import Authority, Status
-from .forms import InstitutionForm, EmployeeForm, AuthorityForm, StatusForm
+from django.contrib.auth import get_user_model
 
+from apps.institutions.models import Institution, InstitutionType
+from apps.prescriptions.models import SupervisoryAuthority
+from .forms import InstitutionForm, UserForm, SupervisoryAuthorityForm
+
+User = get_user_model()
 
 def admin_required(view_func):
     """Декоратор: доступ только для суперпользователей"""
@@ -22,11 +36,20 @@ def admin_required(view_func):
 @login_required
 @admin_required
 def admin_panel(request):
+    """
+    Главная страница панели администратора.
+
+    Передаёт в контекст все учреждения, пользователей и надзорные органы
+    для отображения статистики и таблиц.
+    """
     context = {
-        'institutions': Institution.objects.all(),
-        'employees': Employee.objects.select_related('institution').all(),
-        'authorities': Authority.objects.all(),
-        'statuses': Status.objects.all(),
+        'institutions': Institution.objects.all().select_related('institution_type'),
+        'users': User.objects.all().select_related('institution', 'role'),
+        'authorities': SupervisoryAuthority.objects.all(),
+        'institution_types': InstitutionType.objects.all(),
+        'total_institutions': Institution.objects.count(),
+        'total_users': User.objects.count(),
+        'total_authorities': SupervisoryAuthority.objects.count(),
     }
     return render(request, 'admin_panel/index.html', context)
 
@@ -35,20 +58,26 @@ def admin_panel(request):
 @login_required
 @admin_required
 def institution_create(request):
+    """
+    Создание нового учреждения.
+
+    Поддерживает AJAX-запросы для модального окна.
+    При успехе возвращает JSON {'success': True}, иначе — форму с ошибками.
+    """
     if request.method == 'POST':
         form = InstitutionForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, 'Учреждение создано')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать учреждение'})
+        # При ошибке возвращаем форму для модального окна
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать учреждение'})
     else:
         form = InstitutionForm()
-        if request.GET.get('modal'):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать учреждение'})
     return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Создать учреждение'})
 
@@ -56,21 +85,23 @@ def institution_create(request):
 @login_required
 @admin_required
 def institution_edit(request, pk):
+    """
+    Редактирование учреждения.
+    """
     inst = get_object_or_404(Institution, pk=pk)
     if request.method == 'POST':
         form = InstitutionForm(request.POST, instance=inst)
         if form.is_valid():
             form.save()
             messages.success(request, 'Учреждение обновлено')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать учреждение'})
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать учреждение'})
     else:
         form = InstitutionForm(instance=inst)
-        if request.GET.get('modal'):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать учреждение'})
     return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать учреждение'})
 
@@ -78,14 +109,18 @@ def institution_edit(request, pk):
 @login_required
 @admin_required
 def institution_delete(request, pk):
+    """
+    Удаление учреждения с подтверждением.
+    """
     inst = get_object_or_404(Institution, pk=pk)
     if request.method == 'POST':
         inst.delete()
         messages.success(request, 'Учреждение удалено')
-        if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
         return redirect('admin_panel')
-    if request.GET.get('modal'):
+    # GET-запрос – показываем страницу подтверждения
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return render(request, 'admin_panel/_confirm_delete.html', {'object': inst, 'type': 'учреждение'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': inst, 'type': 'учреждение'})
 
@@ -93,102 +128,114 @@ def institution_delete(request, pk):
 # ------------------- СОТРУДНИКИ -------------------
 @login_required
 @admin_required
-def employee_create(request):
+def user_create(request):
+    """
+    Создание нового пользователя.
+
+    Устанавливает временный пароль 'temp123' — позже пользователь сможет сменить его.
+    """
     if request.method == 'POST':
-        form = EmployeeForm(request.POST)
+        form = UserForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Сотрудник добавлен')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            user = form.save(commit=False)
+            user.set_password('temp123')  # временный пароль
+            user.save()
+            messages.success(request, f'Пользователь {user.email} создан (временный пароль: temp123)')
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Добавить сотрудника'})
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать пользователя'})
     else:
-        form = EmployeeForm()
-        if request.GET.get('modal'):
-            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Добавить сотрудника'})
-    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Добавить сотрудника'})
+        form = UserForm()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать пользователя'})
+    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Создать пользователя'})
+
+@login_required
+@admin_required
+def user_edit(request, pk):
+    """
+    Редактирование пользователя.
+    """
+    user = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        form = UserForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Пользователь обновлён')
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+            return redirect('admin_panel')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать пользователя'})
+    else:
+        form = UserForm(instance=user)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать пользователя'})
+    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать пользователя'})
 
 
 @login_required
 @admin_required
-def employee_edit(request, pk):
-    emp = get_object_or_404(Employee, pk=pk)
+def user_delete(request, pk):
+    """
+    Удаление пользователя.
+    """
+    user = get_object_or_404(User, pk=pk)
     if request.method == 'POST':
-        form = EmployeeForm(request.POST, instance=emp)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Сотрудник обновлён')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
-            return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать сотрудника'})
-    else:
-        form = EmployeeForm(instance=emp)
-        if request.GET.get('modal'):
-            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать сотрудника'})
-    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать сотрудника'})
-
-
-@login_required
-@admin_required
-def employee_delete(request, pk):
-    emp = get_object_or_404(Employee, pk=pk)
-    if request.method == 'POST':
-        emp.delete()
-        messages.success(request, 'Сотрудник удалён')
-        if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        user.delete()
+        messages.success(request, 'Пользователь удалён')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
         return redirect('admin_panel')
-    if request.GET.get('modal'):
-        return render(request, 'admin_panel/_confirm_delete.html', {'object': emp, 'type': 'сотрудника'})
-    return render(request, 'admin_panel/confirm_delete.html', {'object': emp, 'type': 'сотрудника'})
-
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'admin_panel/_confirm_delete.html', {'object': user, 'type': 'пользователя'})
+    return render(request, 'admin_panel/confirm_delete.html', {'object': user, 'type': 'пользователя'})
 
 # ------------------- НАДЗОРНЫЕ ОРГАНЫ -------------------
 @login_required
 @admin_required
 def authority_create(request):
+    """
+    Создание надзорного органа.
+    """
     if request.method == 'POST':
-        form = AuthorityForm(request.POST)
+        form = SupervisoryAuthorityForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, 'Надзорный орган создан')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать надзорный орган'})
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать надзорный орган'})
     else:
-        form = AuthorityForm()
-        if request.GET.get('modal'):
+        form = SupervisoryAuthorityForm()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать надзорный орган'})
     return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Создать надзорный орган'})
-
 
 @login_required
 @admin_required
 def authority_edit(request, pk):
-    auth = get_object_or_404(Authority, pk=pk)
+    """
+    Редактирование надзорного органа.
+    """
+    auth = get_object_or_404(SupervisoryAuthority, pk=pk)
     if request.method == 'POST':
-        form = AuthorityForm(request.POST, instance=auth)
+        form = SupervisoryAuthorityForm(request.POST, instance=auth)
         if form.is_valid():
             form.save()
             messages.success(request, 'Надзорный орган обновлён')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать надзорный орган'})
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать надзорный орган'})
     else:
-        form = AuthorityForm(instance=auth)
-        if request.GET.get('modal'):
+        form = SupervisoryAuthorityForm(instance=auth)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать надзорный орган'})
     return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать надзорный орган'})
 
@@ -196,72 +243,16 @@ def authority_edit(request, pk):
 @login_required
 @admin_required
 def authority_delete(request, pk):
-    auth = get_object_or_404(Authority, pk=pk)
+    """
+    Удаление надзорного органа.
+    """
+    auth = get_object_or_404(SupervisoryAuthority, pk=pk)
     if request.method == 'POST':
         auth.delete()
         messages.success(request, 'Надзорный орган удалён')
-        if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': True})
         return redirect('admin_panel')
-    if request.GET.get('modal'):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return render(request, 'admin_panel/_confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
-
-
-# ------------------- СТАТУСЫ -------------------
-@login_required
-@admin_required
-def status_create(request):
-    if request.method == 'POST':
-        form = StatusForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Статус создан')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
-            return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать статус'})
-    else:
-        form = StatusForm()
-        if request.GET.get('modal'):
-            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать статус'})
-    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Создать статус'})
-
-
-@login_required
-@admin_required
-def status_edit(request, pk):
-    st = get_object_or_404(Status, pk=pk)
-    if request.method == 'POST':
-        form = StatusForm(request.POST, instance=st)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Статус обновлён')
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'success': True})
-            return redirect('admin_panel')
-        else:
-            if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать статус'})
-    else:
-        form = StatusForm(instance=st)
-        if request.GET.get('modal'):
-            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать статус'})
-    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать статус'})
-
-
-@login_required
-@admin_required
-def status_delete(request, pk):
-    st = get_object_or_404(Status, pk=pk)
-    if request.method == 'POST':
-        st.delete()
-        messages.success(request, 'Статус удалён')
-        if request.GET.get('modal') or request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'success': True})
-        return redirect('admin_panel')
-    if request.GET.get('modal'):
-        return render(request, 'admin_panel/_confirm_delete.html', {'object': st, 'type': 'статус'})
-    return render(request, 'admin_panel/confirm_delete.html', {'object': st, 'type': 'статус'})

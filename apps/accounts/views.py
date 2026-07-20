@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 # Получаем кастомную модель User
 User = get_user_model()
@@ -12,21 +13,31 @@ def login_view(request):
         return redirect('committee_dashboard') 
     
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
         
-        user, created = User.objects.get_or_create(username=username)
-        if created:
-            user.set_password(password)
-            user.save()
+        if not email:
+            messages.error(request, 'Пожалуйста, введите email')
+            return render(request, 'accounts/login.html')
         
-        user = authenticate(request, username=username, password=password)
-        if user:
+        if not password:
+            messages.error(request, 'Пожалуйста, введите пароль')
+            return render(request, 'accounts/login.html')
+        
+        # Только аутентификация, без автоматического создания
+        user = authenticate(request, username=email, password=password)
+        
+        if user is not None:
             login(request, user)
             next_url = request.GET.get('next', 'committee_dashboard')
             return redirect(next_url)
         else:
-            messages.error(request, 'Ошибка входа')
+            # Проверяем, существует ли пользователь
+            try:
+                User.objects.get(email=email)
+                messages.error(request, 'Неверный пароль')
+            except User.DoesNotExist:
+                messages.error(request, 'Пользователь с таким email не найден. Зарегистрируйтесь сначала.')
     
     return render(request, 'accounts/login.html')
 

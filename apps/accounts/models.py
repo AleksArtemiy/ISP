@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from apps.institutions.models import Institution
 
 
 class Role(models.Model):
@@ -22,38 +23,6 @@ class Role(models.Model):
     
     def __str__(self) -> str:
         return self.name
-
-
-class Institution(models.Model):
-    """
-    Модель учреждения, связанная с таблицей 'institutions' в БД.
-    
-    Атрибуты:
-        id (int): Первичный ключ.
-        name (str): Полное имя учреждения.
-        short_name (str): Краткое имя учреждения.
-        address (str): Адрес учреждения.
-        institution_type_id (int): ID типа учреждения.
-        created_at (datetime): Дата создания.
-        updated_at (datetime): Дата последнего обновления.
-    """
-    
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255)
-    short_name = models.CharField(max_length=100)
-    address = models.TextField(db_column='adress')  # соответствует существующему столбцу с опечаткой
-    institution_type_id = models.IntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'institutions'
-        managed = False
-        verbose_name = 'Учреждение'
-        verbose_name_plural = 'Учреждения'
-    
-    def __str__(self) -> str:
-        return self.short_name
 
 
 class UserManager(BaseUserManager):
@@ -125,6 +94,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         updated_at (datetime): Дата последнего обновления.
         is_staff (bool): Доступ к административной панели.
         is_active (bool): Активность учётной записи.
+        last_login = models.DateTimeField(blank=True, null=True)
     """
 
     # Поля из таблицы users
@@ -142,6 +112,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Поля, необходимые Django
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    last_login = models.DateTimeField(blank=True, null=True)
+    is_superuser = models.BooleanField(default=False)
 
     # Менеджер
     objects = UserManager()
@@ -151,7 +123,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = 'users'
-        managed = False
+        managed = True
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
