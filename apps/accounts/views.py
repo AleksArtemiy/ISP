@@ -3,14 +3,35 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.core.exceptions import ValidationError
 
-# Получаем кастомную модель User
 User = get_user_model()
 
+
+def get_redirect_url(user):
+    """
+    Определяет URL для перенаправления после входа в зависимости от роли пользователя.
+    """
+    if user.is_superuser:
+        return reverse('admin_panel:admin_panel')
+    
+    # Проверяем, есть ли у пользователя роль "Комитет" (регистронезависимо)
+    if user.role and 'комитет' in user.role.name.lower():
+        return reverse('committee_dashboard')
+    
+    # Если пользователь привязан к учреждению, перенаправляем на дашборд учреждения
+    if user.institution:
+        return reverse('institution_dashboard', kwargs={'institution_id': user.institution.id})
+    
+    # По умолчанию – дашборд комитета
+    return reverse('committee_dashboard')
+
+
 def login_view(request):
+    # Если пользователь уже залогинен, сразу перенаправляем
     if request.user.is_authenticated:
-        return redirect('committee_dashboard') 
+        return redirect(get_redirect_url(request.user))
     
     if request.method == 'POST':
         email = request.POST.get('email', '').strip()
@@ -24,22 +45,20 @@ def login_view(request):
             messages.error(request, 'Пожалуйста, введите пароль')
             return render(request, 'accounts/login.html')
         
-        # Только аутентификация, без автоматического создания
         user = authenticate(request, username=email, password=password)
         
         if user is not None:
             login(request, user)
-            next_url = request.GET.get('next', 'committee_dashboard')
-            return redirect(next_url)
+            return redirect(get_redirect_url(user))
         else:
-            # Проверяем, существует ли пользователь
             try:
                 User.objects.get(email=email)
                 messages.error(request, 'Неверный пароль')
             except User.DoesNotExist:
-                messages.error(request, 'Пользователь с таким email не найден. Зарегистрируйтесь сначала.')
+                messages.error(request, 'Пользователь с таким email не найден.')
     
     return render(request, 'accounts/login.html')
+
 
 @login_required
 def logout_view(request):

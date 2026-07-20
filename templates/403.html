@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Доступ запрещён{% endblock %}
+{% block content %}
+<div style="text-align: center; padding: 4rem 1rem; max-width: 600px; margin: 0 auto;">
+    <h1 style="font-size: 4rem; color: #ef4444;">403</h1>
+    <h2 style="margin-bottom: 1rem;">Доступ запрещён</h2>
+    <p style="color: #64748b; margin-bottom: 1.5rem;">У вас нет прав для просмотра этой страницы.</p>
+    {% if user.is_authenticated %}
+        <p style="margin-bottom: 1.5rem;">Вы вошли как <strong>{{ user.email }}</strong>.<br>
+        Возможно, вам нужно войти под другой учётной записью.</p>
+        <form action="{% url 'logout' %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 2rem; background: #0f3b5c; color: white; border: none; border-radius: 40px; cursor: pointer;">Выйти</button>
+        </form>
+    {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary" style="padding: 0.6rem 2rem; background: #0f3b5c; color: white; border-radius: 40px; text-decoration: none;">Войти</a>
+    {% endif %}
+</div>
+{% endblock %}

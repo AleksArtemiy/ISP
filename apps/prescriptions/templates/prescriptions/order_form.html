@@ -392,7 +392,7 @@
                 <div class="card-body p-4">
                     <form method="post" id="orderForm" enctype="multipart/form-data">
                         {% csrf_token %}
-
+                        
                         <!-- Основная информация -->
                         <div class="card mb-4 border-0 shadow-sm">
                             <div class="card-header bg-light fw-bold text-secondary">
@@ -402,11 +402,11 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Номер предписания</label>
-                                        {{ form.order_number }}
+                                        {{ form.number }}
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Дата выдачи</label>
-                                        {{ form.issuance_date }}
+                                        {{ form.issue_date }}
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Срок исполнения</label>
@@ -415,19 +415,39 @@
                                 </div>
 
                                 <div class="row g-3 mt-2">
-                                    <div class="col-md-6">
+                                    {% if not is_director %}
+                                    <div class="col-md-4">
                                         <label class="form-label fw-bold">Учреждение</label>
                                         {{ form.institution }}
                                     </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Надзорный орган</label>
+                                        {{ form.authority }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Ответственный (создатель)</label>
+                                        {{ form.created_by_user }}
+                                    </div>
+                                {% else %}
+                                    <!-- Для директора выводим надзорный орган на всю ширину -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Надзорный орган</label>
                                         {{ form.authority }}
                                     </div>
+                                    <!-- Скрытые поля для директора (они не видны, но их значения установлены) -->
+                                    {{ form.institution }}
+                                    {{ form.created_by_user }}
+                                    {{ form.status }}
+                                {% endif %}
+                            </div>
+                            {% if not is_director %}
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Статус</label>
+                                        {{ form.status }}
+                                    </div>
                                 </div>
-
-                                <!-- Скрытые поля: ответственный и статус -->
-                                {{ form.responsible_employee.as_hidden }}
-                                {{ form.status.as_hidden }}
+                            {% endif %}
                             </div>
                         </div>
 
@@ -442,22 +462,21 @@
                                     <table class="table table-bordered table-hover align-middle" id="violationsTable">
                                         <thead class="table-light">
                                             <tr>
-                                                <th style="width: 80%">Описание нарушения</th>
-                                                <th style="width: 20%" class="text-center">Удалить</th>
+                                                <th style="width: 85%">Описание нарушения</th>
+                                                <th style="width: 15%" class="text-center">Удалить</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% for form in violation_formset %}
                                             <tr>
                                                 <td>
-                                                    <!-- Поле с автодополнением -->
-                                                    <input type="text" 
-                                                           name="{{ form.prefix }}-description" 
-                                                           id="{{ form.prefix }}-description"
-                                                           class="form-control violation-input" 
-                                                           list="violationList"
-                                                           placeholder="Введите нарушение..."
-                                                           value="{{ form.description.value|default:'' }}">
+                                                    {{ form.text }}
+                                                    <!-- Добавляем datalist для подсказок -->
+                                                    <datalist id="violation-list">
+                                                        {% for violation in violation_list %}
+                                                            <option value="{{ violation }}"></option>
+                                                        {% endfor %}
+                                                    </datalist>
                                                 </td>
                                                 <td class="text-center">
                                                     <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
@@ -469,12 +488,6 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                <!-- Datalist с возможными нарушениями (загружается из базы) -->
-                                <datalist id="violationList">
-                                    {% for violation in violation_options %}
-                                        <option value="{{ violation }}"></option>
-                                    {% endfor %}
-                                </datalist>
                                 <div class="text-end mt-2">
                                     <button type="button" class="btn btn-outline-success btn-sm" id="addViolationBtn">
                                         <i class="bi bi-plus-lg"></i> Добавить нарушение
@@ -483,7 +496,7 @@
                             </div>
                         </div>
 
-                        <!-- Прикрепление файлов -->
+                        <!-- Файлы (заглушка) -->
                         <div class="card mb-4 border-0 shadow-sm">
                             <div class="card-header bg-light fw-bold text-primary">
                                 <i class="bi bi-paperclip me-2"></i> Прикреплённые файлы
@@ -494,23 +507,12 @@
                                     <input type="file" name="attachments" multiple class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
                                     <small class="text-muted">Допустимые форматы: PDF, Word, Excel, изображения. Не более 5 файлов.</small>
                                 </div>
-                                <!-- Если есть уже прикреплённые файлы (при редактировании) – вывести список -->
-                                {% if attachments %}
-                                <div class="mt-3">
-                                    <p class="fw-bold">Загруженные файлы:</p>
-                                    <ul class="list-unstyled">
-                                        {% for att in attachments %}
-                                        <li><a href="{{ att.file.url }}" target="_blank">{{ att.file.name }}</a></li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
 
                         <!-- Кнопки действий -->
                         <div class="d-flex justify-content-between mt-4">
-                            <a href="{% url 'order_list' %}" class="btn btn-outline-secondary px-4">
+                            <a href="{% url 'prescriptions:order_list' %}" class="btn btn-outline-secondary px-4">
                                 <i class="bi bi-x-circle me-1"></i> Отмена
                             </a>
                             <button type="submit" class="btn btn-primary px-5 shadow">
@@ -524,7 +526,7 @@
     </div>
 </div>
 
-<!-- Подключаем Bootstrap Icons и дополнительные скрипты -->
+<!-- Подключаем Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
 <!-- Скрипт для добавления/удаления нарушений и автодополнения -->
@@ -534,7 +536,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const tbody = table.querySelector('tbody');
     const addBtn = document.getElementById('addViolationBtn');
 
-    // Функция обновления индексов формсета
     function updateFormIndexes() {
         const totalFormsInput = document.querySelector('#id_violations-TOTAL_FORMS');
         if (!totalFormsInput) return;
@@ -542,9 +543,8 @@ document.addEventListener('DOMContentLoaded', function() {
         totalFormsInput.value = rows.length;
 
         rows.forEach((row, idx) => {
-            // Обновляем атрибуты name и id у всех элементов внутри строки
-            const inputs = row.querySelectorAll('input, textarea, select');
-            inputs.forEach(input => {
+            const input = row.querySelector('.violation-input');
+            if (input) {
                 const name = input.getAttribute('name');
                 if (name) {
                     const newName = name.replace(/violations-\d+-/, `violations-${idx}-`);
@@ -555,12 +555,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     const newId = id.replace(/violations-\d+-/, `violations-${idx}-`);
                     input.setAttribute('id', newId);
                 }
-            });
-            // Также для label (если есть)
+            }
         });
     }
 
-    // Функция создания новой строки
     function createViolationRow() {
         const totalForms = document.querySelector('#id_violations-TOTAL_FORMS');
         const currentCount = parseInt(totalForms.value);
@@ -568,12 +566,11 @@ document.addEventListener('DOMContentLoaded', function() {
         newRow.innerHTML = `
             <td>
                 <input type="text" 
-                       name="violations-${currentCount}-description" 
-                       id="violations-${currentCount}-description"
+                       name="violations-${currentCount}-text" 
+                       id="violations-${currentCount}-text"
                        class="form-control violation-input" 
-                       list="violationList"
+                       list="violation-list"
                        placeholder="Введите нарушение...">
-                <input type="hidden" name="violations-${currentCount}-DELETE" id="violations-${currentCount}-DELETE">
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
@@ -584,56 +581,26 @@ document.addEventListener('DOMContentLoaded', function() {
         return newRow;
     }
 
-    // Добавление новой строки
     addBtn.addEventListener('click', function() {
         const newRow = createViolationRow();
         tbody.appendChild(newRow);
         updateFormIndexes();
     });
 
-    // Удаление строки (через делегирование)
     tbody.addEventListener('click', function(e) {
         const btn = e.target.closest('.remove-violation');
         if (!btn) return;
         const row = btn.closest('tr');
-        // Если строка только одна – можно запретить удаление, либо пометить на удаление
         if (tbody.querySelectorAll('tr').length > 1) {
-            // Помечаем на удаление: устанавливаем hidden-поле DELETE = true
-            const deleteInput = row.querySelector('input[name$="-DELETE"]');
-            if (deleteInput) {
-                deleteInput.value = 'on';
-                row.style.display = 'none'; // скрываем
-            } else {
-                row.remove();
-            }
+            row.remove();
             updateFormIndexes();
         } else {
-            // Если осталась одна строка, просто очищаем поле
             const input = row.querySelector('.violation-input');
             if (input) input.value = '';
         }
     });
 
-    // Автодополнение: уже работает через datalist, ничего дополнительно не нужно
-
-    // При инициализации обновляем индексы, если есть существующие строки
     updateFormIndexes();
-
-    // Обработка отправки формы – убедимся, что скрытые поля status и responsible заполнены
-    const form = document.getElementById('orderForm');
-    form.addEventListener('submit', function(e) {
-        // Можно добавить валидацию, если нужно
-        // Например, проверка, что хотя бы одно нарушение добавлено
-        const violationInputs = document.querySelectorAll('.violation-input');
-        let hasNonEmpty = false;
-        violationInputs.forEach(inp => {
-            if (inp.value.trim() !== '') hasNonEmpty = true;
-        });
-        if (!hasNonEmpty) {
-            e.preventDefault();
-            alert('Добавьте хотя бы одно нарушение.');
-        }
-    });
 });
 </script>
 
