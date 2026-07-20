@@ -19,6 +19,11 @@
         <div class="label">Надзорные органы</div>
         <a href="?tab=authorities" class="action-link">Управлять</a>
     </div>
+    <div class="admin-stat-card">
+        <div class="number">{{ institution_types.count }}</div>
+        <div class="label">Типы учреждений</div>
+        <a href="?tab=institution_types" class="action-link">Управлять</a>
+    </div>
 </div>
 
 <!-- Табы -->
@@ -26,6 +31,7 @@
     <button class="admin-tab active" data-tab="institutions">🏫 Учреждения</button>
     <button class="admin-tab" data-tab="users">👤 Пользователи</button>
     <button class="admin-tab" data-tab="authorities">🏛️ Надзорные органы</button>
+    <button class="admin-tab" data-tab="institution_types">🏷️ Типы учреждений</button>
 </div>
 
 <div class="tab-content">
@@ -99,6 +105,28 @@
             {% endfor %}
         </div>
     </div>
+
+    <!-- Типы учреждений -->
+    <div class="tab-pane" id="tab-institution_types">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3>Типы учреждений</h3>
+            <button class="admin-btn admin-btn-primary" onclick="openModal('Создать тип учреждения', '{% url 'admin_panel:admin_institution_type_create' %}')">➕ Добавить</button>
+        </div>
+        <div class="admin-table-wrapper">
+            <div class="admin-table-header" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
+                <div>Название</div><div></div><div></div>
+            </div>
+            {% for inst_type in institution_types %}
+            <div class="admin-table-row" style="grid-template-columns: 2fr 0.8fr 0.8fr;">
+                <div>{{ inst_type.name }}</div>
+                <div><button class="admin-btn-icon" onclick="openModal('Редактировать тип учреждения', '{% url 'admin_panel:admin_institution_type_edit' inst_type.pk %}')">✏️</button></div>
+                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_panel:admin_institution_type_delete' inst_type.pk %}')">🗑️</button></div>
+            </div>
+            {% empty %}
+            <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет типов учреждений</div>
+            {% endfor %}
+        </div>
+    </div>
 </div>
 
 <!-- Модальное окно (остаётся без изменений) -->
@@ -114,7 +142,7 @@
     </div>
 </div>
 
-<script>
+<script>  
 // Переключение табов
 document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', function() {
@@ -123,8 +151,14 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
         this.classList.add('active');
         const tabId = this.dataset.tab;
         document.getElementById('tab-' + tabId).classList.add('active');
+        
+        // Обновляем URL с параметром tab без перезагрузки страницы
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tabId);
+        window.history.pushState({}, '', url);
     });
 });
+
 </script>
 <script>
     (function() {
@@ -145,6 +179,8 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
                     modalBody.innerHTML = html;
                     const form = modalBody.querySelector('form');
                     if (form) {
+                        // Устанавливаем action на исходный URL с ?modal=1
+                        form.action = url + '?modal=1';   // <-- ДОБАВИТЬ ЭТУ СТРОКУ
                         form.addEventListener('submit', function(e) {
                             e.preventDefault();
                             const formData = new FormData(form);
@@ -159,7 +195,10 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
                             .then(data => {
                                 if (data.includes('success') || data.includes('Сохранить')) {
                                     closeModal();
-                                    location.reload();
+                                    // Сохраняем текущую вкладку
+                                    const activeTab = document.querySelector('.admin-tab.active');
+                                    const tabParam = activeTab ? activeTab.dataset.tab : 'institutions';
+                                    window.location.href = window.location.pathname + '?tab=' + tabParam;
                                 } else {
                                     modalBody.innerHTML = data;
                                     const newForm = modalBody.querySelector('form');
@@ -195,6 +234,21 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
         window.openModal = openModal;
         window.closeModal = closeModal;
     })();
+
+    // При загрузке страницы активировать вкладку из URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam) {
+            const targetTab = document.querySelector(`.admin-tab[data-tab="${tabParam}"]`);
+            if (targetTab) {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                targetTab.classList.add('active');
+                document.getElementById('tab-' + tabParam).classList.add('active');
+            }
+        }
+    });
 </script>
 
 <style>

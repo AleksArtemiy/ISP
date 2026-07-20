@@ -18,8 +18,7 @@ from django.contrib.auth import get_user_model
 
 from apps.institutions.models import Institution, InstitutionType
 from apps.prescriptions.models import SupervisoryAuthority
-from .forms import InstitutionForm, UserForm, SupervisoryAuthorityForm
-
+from .forms import InstitutionForm, UserForm, SupervisoryAuthorityForm, InstitutionTypeForm
 User = get_user_model()
 
 def admin_required(view_func):
@@ -130,17 +129,13 @@ def institution_delete(request, pk):
 @admin_required
 def user_create(request):
     """
-    Создание нового пользователя.
-
-    Устанавливает временный пароль 'temp123' — позже пользователь сможет сменить его.
+    Создание нового пользователя с указанием пароля.
     """
     if request.method == 'POST':
         form = UserForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password('temp123')  # временный пароль
-            user.save()
-            messages.success(request, f'Пользователь {user.email} создан (временный пароль: temp123)')
+            user = form.save()  # пароль уже установлен внутри form.save()
+            messages.success(request, f'Пользователь {user.email} создан')
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True})
             return redirect('admin_panel')
@@ -256,3 +251,62 @@ def authority_delete(request, pk):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return render(request, 'admin_panel/_confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
+
+# ------------------- ТИПЫ УЧРЕЖДЕНИЙ -------------------
+@login_required
+@admin_required
+def institution_type_create(request):
+    """Создание типа учреждения."""
+    if request.method == 'POST':
+        form = InstitutionTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Тип учреждения создан')
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+            return redirect('admin_panel')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать тип учреждения'})
+    else:
+        form = InstitutionTypeForm()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Создать тип учреждения'})
+    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Создать тип учреждения'})
+
+
+@login_required
+@admin_required
+def institution_type_edit(request, pk):
+    """Редактирование типа учреждения."""
+    inst_type = get_object_or_404(InstitutionType, pk=pk)
+    if request.method == 'POST':
+        form = InstitutionTypeForm(request.POST, instance=inst_type)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Тип учреждения обновлён')
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True})
+            return redirect('admin_panel')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать тип учреждения'})
+    else:
+        form = InstitutionTypeForm(instance=inst_type)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return render(request, 'admin_panel/_form.html', {'form': form, 'title': 'Редактировать тип учреждения'})
+    return render(request, 'admin_panel/generic_form.html', {'form': form, 'title': 'Редактировать тип учреждения'})
+
+
+@login_required
+@admin_required
+def institution_type_delete(request, pk):
+    """Удаление типа учреждения."""
+    inst_type = get_object_or_404(InstitutionType, pk=pk)
+    if request.method == 'POST':
+        inst_type.delete()
+        messages.success(request, 'Тип учреждения удалён')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
+        return redirect('admin_panel')
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'admin_panel/_confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})
+    return render(request, 'admin_panel/confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})

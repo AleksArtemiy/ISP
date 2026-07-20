@@ -1,18 +1,57 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
-from django.contrib import messages
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from datetime import date
 
 from .mock_data import INSTITUTIONS_DATA, PRESCRIPTIONS_MOCK
 
-# (если у вас остались login_view/logout_view – их тоже можно убрать, но пока оставим)
 
-def login_view(request):
-    # ... ваш код (но лучше перенести в accounts)
-    pass
+def committee_required(view_func):
+    """Декоратор: доступ только для пользователей с ролью 'Комитет' или суперпользователей."""
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        if request.user.role and 'committee' in request.user.role.name.lower():
+            return view_func(request, *args, **kwargs)
+        if request.user.is_authenticated:
+            if request.user.institution:
+                messages.error(request, 'У вас нет доступа к дашборду комитета.')
+                return redirect('institution_dashboard', institution_id=request.user.institution.id)
+            else:
+                messages.error(request, 'У вас нет доступа к этой странице.')
+                raise PermissionDenied
+        return redirect('login')
+    return wrapper
+
+
+def institution_access_required(view_func):
+    """Декоратор: доступ к учреждению только для суперпользователя, комитета или владельца."""
+    def wrapper(request, *args, **kwargs):
+        institution_id = kwargs.get('institution_id')
+        if not institution_id:
+            return redirect('committee_dashboard')
+        
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        if request.user.role and 'committee' in request.user.role.name.lower():
+            return view_func(request, *args, **kwargs)
+        
+        if request.user.institution and request.user.institution.id == institution_id:
+            return view_func(request, *args, **kwargs)
+        
+        if request.user.is_authenticated:
+            messages.error(request, 'У вас нет доступа к этому учреждению.')
+            if request.user.institution:
+                return redirect('institution_dashboard', institution_id=request.user.institution.id)
+            else:
+                raise PermissionDenied
+        return redirect('login')
+    return wrapper
+
 
 @login_required
+@committee_required
 def committee_dashboard(request):
     institutions = []
     for inst in INSTITUTIONS_DATA:
@@ -69,7 +108,7 @@ def committee_dashboard(request):
     expiring_soon_total = sum(1 for p in PRESCRIPTIONS_MOCK if p["status_class"] == "yellow")
     total_funding = sum(inst["funding"] for inst in INSTITUTIONS_DATA)
     completion_percent = round(completed_total / total_prescriptions * 100) if total_prescriptions else 0
-    new_this_month = 8  # пока оставляем заглушку
+    new_this_month = 8  # заглушка
 
     context = {
         "institutions": institutions,
@@ -85,7 +124,9 @@ def committee_dashboard(request):
     }
     return render(request, "committee_dashboard.html", context)
 
+
 @login_required
+@institution_access_required
 def institution_dashboard(request, institution_id):
     inst = next((i for i in INSTITUTIONS_DATA if i["id"] == institution_id), None)
     if not inst:
@@ -93,13 +134,26 @@ def institution_dashboard(request, institution_id):
         raise Http404("Учреждение не найдено")
     
     prescs = [p for p in PRESCRIPTIONS_MOCK if p["institution_id"] == institution_id]
+    completed_count = sum(1 for p in prescs if p["status_class"] == "green")
+    overdue_count = sum(1 for p in prescs if p["status_class"] == "red")
+
     context = {
-        "institution": inst,
+        "institution": {
+            "id": inst["id"],
+            "name": inst["name"],
+            "short_name": inst["name"],  # упрощённо
+            "address": "Адрес заглушка",
+            "funding": inst["funding"],
+        },
         "prescriptions": prescs,
+        "completed_count": completed_count,
+        "overdue_count": overdue_count,
         "funding_requests": [],
     }
     return render(request, "institution_dashboard.html", context)
 
+
 def logout_view(request):
+    from django.contrib.auth import logout
     logout(request)
     return redirect("login")

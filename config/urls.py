@@ -29,4 +29,5 @@ urlpatterns = [
     path('prescriptions/', include('apps.prescriptions.urls')),
     path('accounts/', include('apps.accounts.urls')),  
     path('admin-panel/', include('apps.admin_panel.urls')),
+    path('dashboard/', include('apps.dashboard.urls')),
 ]

@@ -7,7 +7,6 @@ User = get_user_model()
 
 
 class OrderForm(forms.ModelForm):
-    # Переопределяем поля с выбором из БД
     institution = forms.ModelChoiceField(
         queryset=Institution.objects.all().order_by('short_name'),
         label='Учреждение',
@@ -34,26 +33,52 @@ class OrderForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-control'}),
         }
 
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
 
-class ViolationForm(forms.ModelForm):
-    class Meta:
-        model = Violation
-        fields = ['description']
-        widgets = {
-            'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'placeholder': 'Введите текст нарушения'}),
-        }
+        # Если пользователь привязан к учреждению (директор)
+        if user and user.institution:
+            # Скрываем поля и устанавливаем значения
+            self.fields['institution'].widget = forms.HiddenInput()
+            self.fields['institution'].initial = user.institution
+            self.fields['institution'].required = False
+
+            self.fields['created_by_user'].widget = forms.HiddenInput()
+            self.fields['created_by_user'].initial = user
+            self.fields['created_by_user'].required = False
+
+            self.fields['status'].widget = forms.HiddenInput()
+            self.fields['status'].initial = 'NEW'
+            self.fields['status'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Для директора принудительно устанавливаем значения
+        if self.user and self.user.institution:
+            cleaned_data['institution'] = self.user.institution
+            cleaned_data['created_by_user'] = self.user
+            cleaned_data['status'] = 'NEW'
+        return cleaned_data
 
 
-# Inline formset для добавления нарушений к предписанию
-ViolationFormSet = forms.inlineformset_factory(
-    Order,
-    OrderViolation,
-    fields=('violation',),
+# Форма для одного нарушения (текстовое поле)
+class ViolationTextForm(forms.Form):
+    text = forms.CharField(
+        label='Нарушение',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control violation-input',
+            'list': 'violation-list',
+            'placeholder': 'Введите нарушение...',
+            'autocomplete': 'off'
+        }),
+        required=False
+    )
+
+
+# Formset для нарушений (динамическое количество)
+ViolationFormSet = forms.formset_factory(
+    ViolationTextForm,
     extra=1,
     can_delete=True,
-    widgets={
-        'violation': forms.Select(attrs={'class': 'form-control'})
-    }
 )
-
-# Альтернативно, можно использовать форму для Violation напрямую, но удобнее добавить выбор из существующих нарушений.

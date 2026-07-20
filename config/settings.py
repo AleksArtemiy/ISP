@@ -28,6 +28,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Обработка ошибок
+handler403 = 'django.views.defaults.permission_denied'
 
 # Application definition
 

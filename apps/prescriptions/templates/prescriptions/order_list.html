@@ -1,52 +1,269 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* Стили для страницы списка предписаний */
+    .filter-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow);
+    }
+    .filter-card .form-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text);
+        margin-bottom: 0.3rem;
+    }
+    .filter-card .form-control,
+    .filter-card .form-select {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        transition: border-color 0.2s;
+    }
+    .filter-card .form-control:focus,
+    .filter-card .form-select:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        background: #fff;
+    }
+    .table thead th {
+        background: #f8fafc;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--text);
+        border-bottom: 2px solid var(--border);
+        padding: 0.75rem 0.5rem;
+    }
+    .table tbody td {
+        padding: 0.75rem 0.5rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border);
+    }
+    .table tbody tr:hover {
+        background: #f9fafb;
+    }
+    .badge {
+        font-weight: 600;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+    }
+    .badge.bg-primary {
+        background-color: var(--blue) !important;
+    }
+    .badge.bg-success {
+        background-color: var(--green) !important;
+    }
+    .badge.bg-danger {
+        background-color: var(--red) !important;
+    }
+    .badge.bg-warning {
+        background-color: var(--yellow) !important;
+        color: #fff;
+    }
+    .btn-sm {
+        border-radius: 8px;
+        padding: 0.2rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    .btn-sm i {
+        font-size: 1rem;
+    }
+    .pagination .page-link {
+        border-radius: 8px;
+        margin: 0 2px;
+        color: var(--text);
+        border-color: var(--border);
+    }
+    .pagination .page-item.active .page-link {
+        background-color: var(--blue);
+        border-color: var(--blue);
+        color: #fff;
+    }
+    .pagination .page-link:hover {
+        background-color: var(--blue-light);
+        border-color: var(--blue);
+        color: var(--blue);
+    }
+    .empty-state {
+        padding: 3rem 0;
+        text-align: center;
+        color: var(--muted);
+    }
+    .empty-state i {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 1rem;
+        color: var(--gray-300);
+    }
+    @media (max-width: 768px) {
+        .filter-card .row > div {
+            margin-bottom: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>📋 Предписания</h2>
-        <a href="{% url 'order_create' %}" class="btn btn-primary">
+        <a href="{% url 'prescriptions:order_create' %}" class="btn btn-primary">
             <i class="fas fa-plus"></i> Создать предписание
         </a>
     </div>
-    
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Номер</th>
-                        <th>Учреждение</th>
-                        <th>Срок исполнения</th>
-                        <th>Статус</th>
-                        <th>Действия</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in orders %}
-                    <tr>
-                        <td>{{ order.order_number }}</td>
-                        <td>{{ order.institution.short_name }}</td>
-                        <td>{{ order.deadline_date }}</td>
-                        <td>
-                            <span class="badge 
-                                {% if order.status.name == 'Выполнено' %}bg-success
-                                {% elif order.status.name == 'Просрочено' %}bg-danger
-                                {% else %}bg-primary{% endif %}">
-                                {{ order.status.name }}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{% url 'order_update' order.pk %}" class="btn btn-sm btn-warning">✏️</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center text-muted">Нет предписаний</td>
-                    </tr>
+
+    <!-- Фильтры -->
+    <div class="filter-card">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Поиск</label>
+                <input type="text" name="q" class="form-control" placeholder="Номер предписания" value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Статус</label>
+                <select name="status" class="form-select">
+                    <option value="">Все</option>
+                    <option value="NEW" {% if current_status == 'NEW' %}selected{% endif %}>Новое</option>
+                    <option value="IN_PROGRESS" {% if current_status == 'IN_PROGRESS' %}selected{% endif %}>В работе</option>
+                    <option value="COMPLETED" {% if current_status == 'COMPLETED' %}selected{% endif %}>Выполнено</option>
+                    <option value="OVERDUE" {% if current_status == 'OVERDUE' %}selected{% endif %}>Просрочено</option>
+                </select>
+            </div>
+            {% if institutions %}
+            <div class="col-md-3">
+                <label class="form-label">Учреждение</label>
+                <select name="institution" class="form-select">
+                    <option value="">Все</option>
+                    {% for inst in institutions %}
+                    <option value="{{ inst.id }}" {% if current_institution == inst.id|stringformat:"i" %}selected{% endif %}>{{ inst.short_name }}</option>
                     {% endfor %}
-                </tbody>
-            </table>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Сортировка</label>
+                <select name="order_by" class="form-select">
+                    <option value="-created_at" {% if current_order_by == '-created_at' %}selected{% endif %}>Новые сначала</option>
+                    <option value="created_at" {% if current_order_by == 'created_at' %}selected{% endif %}>Старые сначала</option>
+                    <option value="-deadline_date" {% if current_order_by == '-deadline_date' %}selected{% endif %}>Срок (сначала дальние)</option>
+                    <option value="deadline_date" {% if current_order_by == 'deadline_date' %}selected{% endif %}>Срок (сначала ближайшие)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Применить</button>
+            </div>
+            {% else %}
+            <div class="col-md-2">
+                <label class="form-label">Сортировка</label>
+                <select name="order_by" class="form-select">
+                    <option value="-created_at" {% if current_order_by == '-created_at' %}selected{% endif %}>Новые сначала</option>
+                    <option value="created_at" {% if current_order_by == 'created_at' %}selected{% endif %}>Старые сначала</option>
+                    <option value="-deadline_date" {% if current_order_by == '-deadline_date' %}selected{% endif %}>Срок (сначала дальние)</option>
+                    <option value="deadline_date" {% if current_order_by == 'deadline_date' %}selected{% endif %}>Срок (сначала ближайшие)</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Применить</button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Таблица -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Номер</th>
+                            <th>Учреждение</th>
+                            <th>Надзорный орган</th>
+                            <th>Срок исполнения</th>
+                            <th>Статус</th>
+                            <th>Ответственный</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><strong>{{ order.number }}</strong></td>
+                            <td>{{ order.institution.short_name }}</td>
+                            <td>{{ order.authority.name|default:"—" }}</td>
+                            <td>{{ order.deadline_date|date:"d.m.Y" }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if order.status == 'COMPLETED' %}bg-success
+                                    {% elif order.status == 'OVERDUE' %}bg-danger
+                                    {% elif order.status == 'IN_PROGRESS' %}bg-warning
+                                    {% else %}bg-primary{% endif %}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ order.created_by_user.get_full_name|default:order.created_by_user.email }}</td>
+                            <td>
+                                <a href="{% url 'prescriptions:order_update' order.pk %}" class="btn btn-sm btn-warning" title="Редактировать">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if order.status != 'COMPLETED' %}
+                                <form method="post" action="{% url 'prescriptions:complete_order' order.pk %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-success" title="Отметить выполненным">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <p>Предписаний не найдено</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <nav aria-label="Навигация по страницам" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Предыдущая</a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Следующая</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
+
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 {% endblock %}
