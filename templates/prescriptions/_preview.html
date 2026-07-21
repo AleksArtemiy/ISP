@@ -1,0 +1,51 @@
+<div style="padding: 0.5rem 0;">
+    <h4 style="margin-bottom: 1.5rem; font-weight: 700;">Проверьте данные перед сохранением</h4>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+        <div><strong>Номер предписания:</strong> {{ preview_data.number }}</div>
+        <div><strong>Дата выдачи:</strong> {{ preview_data.issue_date|date:"d.m.Y" }}</div>
+        <div><strong>Срок исполнения:</strong> {{ preview_data.deadline_date|date:"d.m.Y" }}</div>
+        <div><strong>Учреждение:</strong> {{ preview_data.institution.short_name }}</div>
+        <div><strong>Надзорный орган:</strong> {{ preview_data.authority.name }}</div>
+        <div><strong>Ответственный:</strong> {{ preview_data.created_by_user.get_full_name }}</div>
+        <div><strong>Статус:</strong> {{ preview_data.get_status_display }}</div>
+    </div>
+    
+    <h5 style="font-weight: 600; margin-bottom: 0.75rem;">Нарушения:</h5>
+    <ul style="list-style: none; padding: 0;">
+        {% for violation in preview_data.violations %}
+        <li style="padding: 0.4rem 0; border-bottom: 1px dashed #e2e8f0;">— {{ violation }}</li>
+        {% empty %}
+        <li style="color: #94a3b8;">Нарушений не указано</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form id="previewForm" method="post" action="{% url 'prescriptions:order_create' %}{% if next %}?next={{ next }}{% endif %}">
+    {% csrf_token %}
+    <!-- Копируем все поля из основной формы -->
+    {% for field in form %}
+        {% if field.widget_type != 'hidden' %}
+            <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+        {% else %}
+            {{ field }}
+        {% endif %}
+    {% endfor %}
+    {{ violation_formset.management_form }}
+    {% for vf in violation_formset %}
+        <input type="hidden" name="{{ vf.prefix }}-text" value="{{ vf.text.value }}">
+        <input type="hidden" name="{{ vf.prefix }}-DELETE" value="">
+    {% endfor %}
+    <input type="hidden" name="next" value="{{ next }}">
+</form>
+
+<div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+    <button type="button" class="btn btn-secondary" onclick="closeModal()">Назад</button>
+    <button type="button" class="btn btn-primary" id="confirmSaveBtn">Сохранить</button>
+</div>
+
+<script>
+    document.getElementById('confirmSaveBtn').addEventListener('click', function() {
+        document.getElementById('previewForm').submit();
+    });
+</script>

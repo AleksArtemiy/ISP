@@ -392,7 +392,7 @@
                 <div class="card-body p-4">
                     <form method="post" id="orderForm" enctype="multipart/form-data">
                         {% csrf_token %}
-                        
+                        <input type="hidden" name="next" value="{{ next }}">
                         <!-- Основная информация -->
                         <div class="card mb-4 border-0 shadow-sm">
                             <div class="card-header bg-light fw-bold text-secondary">
@@ -415,7 +415,7 @@
                                 </div>
 
                                 <div class="row g-3 mt-2">
-                                    {% if not is_director %}
+                                    {% if not hide_institution_fields %}
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Учреждение</label>
                                         {{ form.institution }}

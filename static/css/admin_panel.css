@@ -497,10 +497,6 @@ body {
     transform: rotate(90deg);
 }
 
-.modal-body {
-    /* содержимое формы */
-}
-
 /* Стили для форм внутри модалки — наследуются от .admin-form-card */
 .modal-body .admin-form-card {
     border: none;

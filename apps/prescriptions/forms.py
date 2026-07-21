@@ -23,9 +23,11 @@ class OrderForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-control'})
     )
 
+    next = forms.CharField(widget=forms.HiddenInput(), required=False)
+
     class Meta:
         model = Order
-        fields = ['number', 'issue_date', 'deadline_date', 'institution', 'authority', 'created_by_user', 'status']
+        fields = ['number', 'issue_date', 'deadline_date', 'institution', 'authority', 'created_by_user', 'status', 'next']
         widgets = {
             'number': forms.TextInput(attrs={'class': 'form-control'}),
             'issue_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -33,19 +35,38 @@ class OrderForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-control'}),
         }
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, institution_id=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
+        self.institution_id = institution_id
 
-        # Если пользователь привязан к учреждению (директор)
-        if user and user.institution:
-            # Скрываем поля и устанавливаем значения
+        if institution_id:
+            try:
+                institution_obj = Institution.objects.get(pk=institution_id)
+            except Institution.DoesNotExist:
+                institution_obj = None
+
+            if institution_obj:
+                self.fields['institution'].widget = forms.HiddenInput()
+                self.fields['institution'].initial = institution_obj
+                self.fields['institution'].required = False
+
+                if user:
+                    self.fields['created_by_user'].widget = forms.HiddenInput()
+                    self.fields['created_by_user'].initial = user  # ✅ объект
+                    self.fields['created_by_user'].required = False
+
+                self.fields['status'].widget = forms.HiddenInput()
+                self.fields['status'].initial = 'NEW'
+                self.fields['status'].required = False
+
+        elif user and user.institution:
             self.fields['institution'].widget = forms.HiddenInput()
-            self.fields['institution'].initial = user.institution
+            self.fields['institution'].initial = user.institution  # ✅ объект
             self.fields['institution'].required = False
 
             self.fields['created_by_user'].widget = forms.HiddenInput()
-            self.fields['created_by_user'].initial = user
+            self.fields['created_by_user'].initial = user  # ✅ объект
             self.fields['created_by_user'].required = False
 
             self.fields['status'].widget = forms.HiddenInput()
@@ -54,9 +75,13 @@ class OrderForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        # Для директора принудительно устанавливаем значения
-        if self.user and self.user.institution:
-            cleaned_data['institution'] = self.user.institution
+        # Принудительно подставляем значения, если они скрыты
+        if self.institution_id:
+            try:
+                cleaned_data['institution'] = Institution.objects.get(pk=self.institution_id)
+            except Institution.DoesNotExist:
+                cleaned_data['institution'] = None
+        if self.user and (self.institution_id or (self.user.institution and not self.institution_id)):
             cleaned_data['created_by_user'] = self.user
             cleaned_data['status'] = 'NEW'
         return cleaned_data
