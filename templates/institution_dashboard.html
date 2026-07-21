@@ -7,12 +7,12 @@
 <div class="section-header">
     <h2>📌 Реестр предписаний для {{ institution.name }}</h2>
     <div>
-        <a href="{% url 'prescriptions:order_create' %}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
+        <a href="{% url 'prescriptions:order_create' %}?institution={{ institution.id }}&next={{ request.path }}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
         <button class="btn-primary" id="createFundingBtn" style="background:#2b6e4f; margin-left:0.5rem;">💰 Заявка на финансирование</button>
     </div>
 </div>
 
-<!-- Карточка статистики по учреждению (можно добавить) -->
+<!-- Карточка статистики -->
 <div class="stats-grid" style="margin-bottom: 24px;">
     <div class="stat-card">
         <div class="stat-icon blue-icon">
@@ -47,6 +47,17 @@
         <div class="stat-subtitle">требуют внимания</div>
     </div>
     <div class="stat-card">
+        <div class="stat-icon yellow-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M12 7V12L15 15"></path>
+            </svg>
+        </div>
+        <div class="stat-title">Скоро истекают</div>
+        <div class="stat-value">{{ expiring_soon_total }}</div>
+        <div class="stat-subtitle">До 14 дней</div>
+    </div>
+    <div class="stat-card">
         <div class="stat-icon purple-icon">
             <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
                 <rect x="3" y="6" width="18" height="12" rx="2"/>
@@ -58,7 +69,7 @@
     </div>
 </div>
 
-<!-- Таблица предписаний в стиле prescriptions.css -->
+<!-- Таблица предписаний -->
 <div class="table-wrapper">
     <div class="table-header">
         <div></div>
@@ -127,22 +138,16 @@
     <div id="fundingRequestsList">(Заявки будут здесь)</div>
 </div>
 
-<!-- Скрипт для раскрытия строк (как в committee_dashboard) -->
+<!-- Только специфичный скрипт для кнопки заявки (раскрытие строк уже в base.html) -->
 <script>
-    document.querySelectorAll('.table-row').forEach(row => {
-        const expandBtn = row.querySelector('.expand-btn');
-        const id = row.getAttribute('data-id');
-        const content = document.getElementById(`content-${id}`);
-        if (!content) return;
-        const toggle = (e) => {
-            if (e.target.closest('.prescription-link') || e.target.closest('.edit-btn')) return;
-            row.classList.toggle('active');
-            content.classList.toggle('active');
-        };
-        row.addEventListener('click', toggle);
-        if (expandBtn) expandBtn.addEventListener('click', toggle);
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('createFundingBtn')?.addEventListener('click', function() {
+            alert('Форма заявки на финансирование (будет реализована)');
+        });
     });
-    // Заглушки для кнопок
-    document.getElementById('createFundingBtn')?.addEventListener('click', () => alert('Форма заявки на финансирование (будет реализована)'));
+    profileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    });
 </script>
 {% endblock %}

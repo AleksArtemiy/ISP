@@ -264,7 +264,7 @@
             if (e.target.closest('.finance') || e.target.closest('.school-tag')) return;
             const instId = card.getAttribute('data-id');
             window.location.href = `/institution/${instId}/`;
-        });
+        });  
     });
     // Глобальный поиск по таблице и карточкам (простейший вариант)
     const globalSearch = document.getElementById('globalSearch');

@@ -136,22 +136,23 @@ def institution_dashboard(request, institution_id):
     prescs = [p for p in PRESCRIPTIONS_MOCK if p["institution_id"] == institution_id]
     completed_count = sum(1 for p in prescs if p["status_class"] == "green")
     overdue_count = sum(1 for p in prescs if p["status_class"] == "red")
+    expiring_soon_total = sum(1 for p in prescs if p["status_class"] == "yellow")  # добавлено
 
     context = {
         "institution": {
             "id": inst["id"],
             "name": inst["name"],
-            "short_name": inst["name"],  # упрощённо
+            "short_name": inst["name"],
             "address": "Адрес заглушка",
             "funding": inst["funding"],
         },
         "prescriptions": prescs,
         "completed_count": completed_count,
         "overdue_count": overdue_count,
+        "expiring_soon_total": expiring_soon_total,  # добавлено
         "funding_requests": [],
     }
     return render(request, "institution_dashboard.html", context)
-
 
 def logout_view(request):
     from django.contrib.auth import logout

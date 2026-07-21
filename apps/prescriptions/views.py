@@ -86,6 +86,9 @@ class OrderCreateView(CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
+        institution_id = self.request.GET.get('institution')
+        if institution_id:
+            kwargs['institution_id'] = int(institution_id)
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -97,22 +100,24 @@ class OrderCreateView(CreateView):
         context['title'] = 'Создание предписания'
         context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
         context['is_director'] = bool(self.request.user.institution)
+        context['hide_institution_fields'] = bool(self.request.GET.get('institution') or self.request.user.institution)
+        context['next'] = self.request.GET.get('next', '')
         return context
 
     def form_valid(self, form):
         context = self.get_context_data()
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
-            # Сохраняем предписание (form.save() уже обработает скрытые поля)
             order = form.save(commit=False)
-            # Если директор - дополнительные проверки
-            if self.request.user.institution:
+            # Если передан institution_id, используем его, иначе проверяем директора
+            if self.request.GET.get('institution'):
+                order.institution_id = int(self.request.GET.get('institution'))
+            elif self.request.user.institution:
                 order.institution = self.request.user.institution
-                order.created_by_user = self.request.user
-                order.status = 'NEW'
+            order.created_by_user = self.request.user
+            order.status = 'NEW'
             order.save()
 
-            # Обрабатываем нарушения
             for violation_form in violation_formset:
                 text = violation_form.cleaned_data.get('text')
                 if text:
@@ -120,6 +125,9 @@ class OrderCreateView(CreateView):
                     OrderViolation.objects.create(order=order, violation=violation)
 
             messages.success(self.request, f'Предписание {order.number} успешно создано!')
+            next_url = self.request.POST.get('next')
+            if next_url:
+                return redirect(next_url)
             return redirect(self.success_url)
         else:
             return self.render_to_response(self.get_context_data(form=form))
