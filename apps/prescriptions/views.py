@@ -4,9 +4,11 @@ from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy
 from django.core.exceptions import PermissionDenied
+
+from apps.institutions.models import Institution
 from .models import Order, Violation, OrderViolation
 from .forms import OrderForm, ViolationFormSet
-
+from django.views.generic import DetailView
 
 @login_required
 def complete_order(request, pk):
@@ -70,12 +72,28 @@ class OrderListView(ListView):
         context['current_order_by'] = self.request.GET.get('order_by', '-created_at')
         # Список учреждений для фильтра (только для комитета/суперадмина)
         user = self.request.user
-        if user.is_superuser or (user.role and 'комитет' in user.role.name.lower()):
+        if user.is_superuser or (user.role and 'committee' in user.role.name.lower()):
             context['institutions'] = Institution.objects.all().order_by('short_name')
         else:
             context['institutions'] = None
         return context
 
+class OrderDetailView(DetailView):
+    model = Order
+    template_name = 'prescriptions/order_detail.html'
+    content_object_name = 'order'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Директор видит только свои предписания
+        user = self.request.user
+        if not user.is_superuser and not (user.role and 'комитет' in user.role.name.lower()):
+            if user.institution:
+                qs = qs.filter(institution=user.institution)
+            else:
+                # Если у пользователя нет учреждения и он не комитет/админ, возвращаем пустой queryset
+                return qs.none()
+        return qs.select_related('institution', 'authority', 'created_by_user').prefetch_related('order_violations__violation', 'files')
 
 class OrderCreateView(CreateView):
     model = Order
@@ -131,7 +149,6 @@ class OrderCreateView(CreateView):
             return redirect(self.success_url)
         else:
             return self.render_to_response(self.get_context_data(form=form))
-
 
 class OrderUpdateView(UpdateView):
     model = Order

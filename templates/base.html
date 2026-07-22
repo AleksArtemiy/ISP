@@ -37,6 +37,11 @@
             </div>
             <div class="topbar-right">
                 <div class="committee">Комитет образования</div>
+                {% if user.role and 'committee' in user.role.name.lower %}
+                    <a href="{% url 'committee_dashboard' %}" class="btn-back" style="text-decoration:none; padding:0 12px; height:36px; background:var(--blue-light); border-radius:12px; display:flex; align-items:center; font-size:14px; color:var(--blue);">
+                        📊 На дашборд
+                    </a>
+                {% endif %}
                 <div class="notification">
                     <svg fill="none" viewBox="0 0 24 24" stroke-width="2">
                         <path d="M15 17H5L7 14V10A5 5 0 0117 10V14L19 17H15Z"/>

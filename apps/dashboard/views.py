@@ -2,9 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from datetime import date
+from django.db.models import Count, Q, Sum, Case, When, IntegerField
+from django.utils import timezone
+from datetime import date, timedelta
 
-from .mock_data import INSTITUTIONS_DATA, PRESCRIPTIONS_MOCK
+from apps.institutions.models import Institution
+from apps.prescriptions.models import Order, Violation, OrderViolation
+from apps.accounts.models import User
 
 
 def committee_required(view_func):
@@ -53,74 +57,158 @@ def institution_access_required(view_func):
 @login_required
 @committee_required
 def committee_dashboard(request):
-    institutions = []
-    for inst in INSTITUTIONS_DATA:
-        inst_prescs = [p for p in PRESCRIPTIONS_MOCK if p["institution_id"] == inst["id"]]
-        total = len(inst_prescs)
-        completed = sum(1 for p in inst_prescs if p["status_class"] == "green" and p["due_date"] >= date.today())
-        overdue = sum(1 for p in inst_prescs if p["status_class"] == "red")
-        
-        if total == 0:
-            bar_color = 'pastel-green'
-            progress_percent = 100
-        else:
-            has_red = any(p["status_class"] == "red" for p in inst_prescs)
-            has_yellow = any(p["status_class"] == "yellow" for p in inst_prescs)
-            if has_red:
-                bar_color = 'red'
-            elif has_yellow:
-                bar_color = 'yellow'
-            else:
-                bar_color = 'green'
-            progress_percent = int((completed / total * 100)) if total else 0
+    """Дашборд комитета – общая статистика по всем учреждениям."""
+    
+    # Получаем все учреждения с аннотациями по предписаниям
+    institutions = Institution.objects.annotate(
+        total_orders=Count('order', distinct=True),
+        completed_orders=Count('order', filter=Q(order__status='COMPLETED'), distinct=True),
+        overdue_orders=Count('order', filter=Q(order__status='OVERDUE'), distinct=True),
+        in_progress_orders=Count('order', filter=Q(order__status='IN_PROGRESS'), distinct=True),
+        new_orders=Count('order', filter=Q(order__status='NEW'), distinct=True),
+    ).select_related('institution_type')
 
-        if overdue > 0:
-            deadline_status = "overdue"
+    # Общая статистика по всем предписаниям
+    all_orders = Order.objects.all()
+    total_prescriptions = all_orders.count()
+    overdue_total = all_orders.filter(status='OVERDUE').count()
+    completed_total = all_orders.filter(status='COMPLETED').count()
+    today = date.today()
+    expiring_soon_total = all_orders.filter(
+        status__in=['NEW', 'IN_PROGRESS'],
+        deadline_date__gte=today,
+        deadline_date__lte=today + timedelta(days=14)
+    ).count()
+    completion_percent = round(completed_total / total_prescriptions * 100) if total_prescriptions else 0
+
+    # Новых за месяц (для простоты – за последние 30 дней)
+    one_month_ago = timezone.now() - timedelta(days=30)
+    new_this_month = all_orders.filter(created_at__gte=one_month_ago).count()
+
+    # Общее финансирование (если есть поле funding в Institution, иначе 0)
+    total_funding = 0
+
+    # Подготовка данных для карточек учреждений
+    institutions_data = []
+    for inst in institutions:
+        # Определяем цвет прогресс-бара и статус
+        if inst.overdue_orders > 0:
+            bar_color = 'red'
+            deadline_status = 'overdue'
+            # Вычисляем максимальное количество дней просрочки среди просроченных предписаний
+            overdue_days = 0
+            overdue_orders = inst.order_set.filter(status='OVERDUE')
+            if overdue_orders.exists():
+                overdue_days = max((today - o.deadline_date).days for o in overdue_orders)
             days_left = 0
-            overdue_days = max(0, max((date.today() - p["due_date"]).days for p in inst_prescs if p["status_class"] == "red"))
-        elif any(p["status_class"] == "yellow" for p in inst_prescs):
-            deadline_status = "expiring"
-            days_left = min((p["due_date"] - date.today()).days for p in inst_prescs if p["status_class"] == "yellow")
-            overdue_days = 0
+        elif inst.in_progress_orders > 0 or inst.new_orders > 0:
+            # Смотрим ближайший дедлайн среди активных
+            nearest = inst.order_set.filter(
+                status__in=['NEW', 'IN_PROGRESS']
+            ).order_by('deadline_date').first()
+            if nearest:
+                days_left = (nearest.deadline_date - today).days
+                if days_left <= 14:
+                    bar_color = 'yellow'
+                    deadline_status = 'expiring'
+                    overdue_days = 0
+                else:
+                    bar_color = 'green'
+                    deadline_status = 'ok'
+                    overdue_days = 0
+            else:
+                bar_color = 'pastel-green'
+                deadline_status = 'ok'
+                days_left = 0
+                overdue_days = 0
         else:
-            deadline_status = "ok"
-            days_left = max((p["due_date"] - date.today()).days for p in inst_prescs) if inst_prescs else 0
+            bar_color = 'pastel-green'
+            deadline_status = 'ok'
+            days_left = 0
             overdue_days = 0
 
-        institutions.append({
-            "id": inst["id"],
-            "name": inst["name"],
-            "type_name": inst["type_name"],
-            "total_prescriptions": total,
-            "completed_prescriptions": completed,
-            "overdue_count": overdue,
-            "funding": inst["funding"],
-            "deadline_status": deadline_status,
-            "days_left": days_left,
-            "overdue_days": overdue_days,
-            "progress_percent": progress_percent,
-            "bar_color": bar_color,
+        # Процент выполнения
+        if inst.total_orders > 0:
+            progress_percent = int((inst.completed_orders / inst.total_orders) * 100)
+        else:
+            progress_percent = 100
+
+        # Получаем тип учреждения
+        type_name = inst.institution_type.name if inst.institution_type else '—'
+
+        institutions_data.append({
+            'id': inst.id,
+            'name': inst.name,
+            'short_name': inst.short_name,
+            'type_name': type_name,
+            'total_prescriptions': inst.total_orders,
+            'completed_prescriptions': inst.completed_orders,
+            'overdue_count': inst.overdue_orders,
+            'funding': 0,
+            'deadline_status': deadline_status,
+            'days_left': days_left,
+            'overdue_days': overdue_days,
+            'progress_percent': progress_percent,
+            'bar_color': bar_color,
         })
 
-    total_prescriptions = len(PRESCRIPTIONS_MOCK)
-    overdue_total = sum(1 for p in PRESCRIPTIONS_MOCK if p["status_class"] == "red")
-    completed_total = sum(1 for p in PRESCRIPTIONS_MOCK if p["status_class"] == "green")
-    expiring_soon_total = sum(1 for p in PRESCRIPTIONS_MOCK if p["status_class"] == "yellow")
-    total_funding = sum(inst["funding"] for inst in INSTITUTIONS_DATA)
-    completion_percent = round(completed_total / total_prescriptions * 100) if total_prescriptions else 0
-    new_this_month = 8  # заглушка
+    # Список всех предписаний для реестра
+    prescriptions = Order.objects.select_related(
+        'institution', 'authority', 'created_by_user'
+    ).prefetch_related(
+        'order_violations__violation'
+    ).order_by('-created_at')
+
+    prescriptions_data = []
+    for order in prescriptions:
+        # Определяем статус и прогресс для mock-подобного отображения
+        if order.status == 'COMPLETED':
+            status_class = 'green'
+            progress = 100
+            status_text = 'Выполнено'
+        elif order.status == 'OVERDUE':
+            status_class = 'red'
+            progress = 0
+            days = (today - order.deadline_date).days
+            status_text = f'Просрочено на {days} дн.'
+        else:
+            days_left = (order.deadline_date - today).days
+            if days_left <= 14:
+                status_class = 'yellow'
+                progress = 50
+                status_text = f'До окончания: {days_left} дн.'
+            else:
+                status_class = 'green'
+                progress = 75
+                status_text = f'До окончания: {days_left} дн.'
+
+        violations = [ov.violation.description for ov in order.order_violations.all()]
+
+        prescriptions_data.append({
+            'id': order.id,
+            'number': order.number,
+            'institution_id': order.institution.id,
+            'institution_name': order.institution.short_name,
+            'authority': order.authority.name if order.authority else '—',
+            'due_date': order.deadline_date,
+            'progress_percent': progress,
+            'status_class': status_class,
+            'status_text': status_text,
+            'responsible': order.created_by_user.get_full_name() if order.created_by_user else '—',
+            'violations': violations,
+        })
 
     context = {
-        "institutions": institutions,
-        "prescriptions": PRESCRIPTIONS_MOCK,
-        "total_prescriptions": total_prescriptions,
-        "overdue_total": overdue_total,
-        "expiring_soon_total": expiring_soon_total,
-        "completed_total": completed_total,
-        "completion_percent": completion_percent,
-        "total_funding": total_funding,
-        "new_this_month": new_this_month,
-        "user_role": "Комитет образования",
+        'institutions': institutions_data,
+        'prescriptions': prescriptions_data,
+        'total_prescriptions': total_prescriptions,
+        'overdue_total': overdue_total,
+        'expiring_soon_total': expiring_soon_total,
+        'completed_total': completed_total,
+        'completion_percent': completion_percent,
+        'total_funding': total_funding,
+        'new_this_month': new_this_month,
+        'user_role': 'Комитет образования',
     }
     return render(request, "committee_dashboard.html", context)
 
@@ -128,31 +216,76 @@ def committee_dashboard(request):
 @login_required
 @institution_access_required
 def institution_dashboard(request, institution_id):
-    inst = next((i for i in INSTITUTIONS_DATA if i["id"] == institution_id), None)
-    if not inst:
-        from django.http import Http404
-        raise Http404("Учреждение не найдено")
-    
-    prescs = [p for p in PRESCRIPTIONS_MOCK if p["institution_id"] == institution_id]
-    completed_count = sum(1 for p in prescs if p["status_class"] == "green")
-    overdue_count = sum(1 for p in prescs if p["status_class"] == "red")
-    expiring_soon_total = sum(1 for p in prescs if p["status_class"] == "yellow")  # добавлено
+    """Дашборд конкретного учреждения."""
+    institution = get_object_or_404(Institution, pk=institution_id)
+    orders = Order.objects.filter(institution=institution).select_related(
+        'authority', 'created_by_user'
+    ).prefetch_related(
+        'order_violations__violation'
+    ).order_by('-created_at')
+
+    completed_count = orders.filter(status='COMPLETED').count()
+    overdue_count = orders.filter(status='OVERDUE').count()
+    today = date.today()
+    expiring_soon_total = orders.filter(
+        status__in=['NEW', 'IN_PROGRESS'],
+        deadline_date__gte=today,
+        deadline_date__lte=today + timedelta(days=14)
+    ).count()
+
+    prescriptions_data = []
+    for order in orders:
+        violations = [ov.violation.description for ov in order.order_violations.all()]
+        if order.status == 'COMPLETED':
+            status = 'completed'
+            progress = 100
+            status_text = 'Выполнено'
+        elif order.status == 'OVERDUE':
+            status = 'overdue'
+            progress = 0
+            days = (today - order.deadline_date).days
+            status_text = f'Просрочено на {days} дн.'
+        else:
+            days_left = (order.deadline_date - today).days
+            if days_left <= 14:
+                status = 'expiring'
+                progress = 50
+                status_text = f'До окончания: {days_left} дн.'
+            else:
+                status = 'in_progress'
+                progress = 75
+                status_text = f'До окончания: {days_left} дн.'
+
+        prescriptions_data.append({
+            'id': order.id,
+            'number': order.number,
+            'authority': order.authority.name if order.authority else '—',
+            'due_date': order.deadline_date,
+            'status': status,
+            'progress_percent': progress,
+            'status_text': status_text,
+            'responsible': order.created_by_user.get_full_name() if order.created_by_user else '—',
+            'violations': violations,
+        })
+
+    funding = getattr(institution, 'funding', 0)
 
     context = {
-        "institution": {
-            "id": inst["id"],
-            "name": inst["name"],
-            "short_name": inst["name"],
-            "address": "Адрес заглушка",
-            "funding": inst["funding"],
+        'institution': {
+            'id': institution.id,
+            'name': institution.name,
+            'short_name': institution.short_name,
+            'address': institution.address,
+            'funding': funding,
         },
-        "prescriptions": prescs,
-        "completed_count": completed_count,
-        "overdue_count": overdue_count,
-        "expiring_soon_total": expiring_soon_total,  # добавлено
-        "funding_requests": [],
+        'prescriptions': prescriptions_data,
+        'completed_count': completed_count,
+        'overdue_count': overdue_count,
+        'expiring_soon_total': expiring_soon_total,
+        'funding_requests': [],
     }
     return render(request, "institution_dashboard.html", context)
+
 
 def logout_view(request):
     from django.contrib.auth import logout

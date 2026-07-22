@@ -155,7 +155,12 @@ class OrderViolation(models.Model):
         verbose_name / verbose_name_plural.
     """
     id = models.AutoField(primary_key=True)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, db_column='order_id')
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        db_column='order_id',
+        related_name='order_violations'  # добавляем related_name
+    )
     violation = models.ForeignKey(Violation, on_delete=models.CASCADE, db_column='violation_id')
 
     class Meta:
