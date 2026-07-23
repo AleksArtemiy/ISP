@@ -1,21 +1,25 @@
+import os
+import uuid
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.generic import ListView, CreateView, UpdateView
+from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from django.urls import reverse_lazy
 from django.core.exceptions import PermissionDenied
+from django.utils import timezone
 
 from apps.institutions.models import Institution
-from .models import Order, Violation, OrderViolation
+from .models import Order, Violation, OrderViolation, File
 from .forms import OrderForm, ViolationFormSet
-from django.views.generic import DetailView
 
 @login_required
 def complete_order(request, pk):
     order = get_object_or_404(Order, pk=pk)
     # Проверяем, что пользователь имеет право отмечать выполненным
     # Если директор - только своё учреждение
-    if not request.user.is_superuser and not (request.user.role and 'комитет' in request.user.role.name.lower()):
+    if not request.user.is_superuser and not (request.user.role and 'committee' in request.user.role.name.lower()):
         if not request.user.institution or request.user.institution.id != order.institution.id:
             raise PermissionDenied("У вас нет прав на это действие.")
     order.status = 'COMPLETED'
@@ -23,6 +27,56 @@ def complete_order(request, pk):
     messages.success(request, f'Предписание {order.number} отмечено как выполненное.')
     return redirect('institutions:detail', pk=order.institution.id)
 
+def handle_uploaded_files(order, files, user):
+    """
+    Обрабатывает загруженные файлы:
+    - проверяет количество (не более 5)
+    - проверяет расширение и размер
+    - сохраняет на диск и создаёт записи в БД
+    """
+    MAX_FILES = 5
+    MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png']
+
+    if len(files) > MAX_FILES:
+        raise ValidationError(f'Можно загрузить не более {MAX_FILES} файлов.')
+
+    uploaded_paths = []
+    for f in files:
+        # Проверка размера
+        if f.size > MAX_SIZE:
+            raise ValidationError(f'Файл "{f.name}" превышает допустимый размер (10 МБ).')
+
+        # Проверка расширения
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise ValidationError(f'Недопустимый формат файла "{f.name}". Разрешены: {", ".join(ALLOWED_EXTENSIONS)}.')
+
+        # Генерируем уникальное имя для хранения
+        unique_name = f'{uuid.uuid4().hex}{ext}'
+        # Формируем путь: prescriptions/YYYY/MM/DD/
+        date_path = timezone.now().strftime('prescriptions/%Y/%m/%d')
+        full_dir = os.path.join(settings.MEDIA_ROOT, date_path)
+        os.makedirs(full_dir, exist_ok=True)
+
+        file_path = os.path.join(date_path, unique_name)
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+        # Сохраняем файл
+        with open(full_path, 'wb+') as destination:
+            for chunk in f.chunks():
+                destination.write(chunk)
+
+        # Создаём запись в БД
+        File.objects.create(
+            order=order,
+            uploaded_by_user=user,
+            original_filename=f.name,
+            file_path=file_path
+        )
+        uploaded_paths.append(file_path)
+
+    return uploaded_paths
 
 class OrderListView(ListView):
     model = Order
@@ -35,7 +89,7 @@ class OrderListView(ListView):
 
         # Фильтр по учреждению для директора
         user = self.request.user
-        if not user.is_superuser and not (user.role and 'комитет' in user.role.name.lower()):
+        if not user.is_superuser and not (user.role and 'committee' in user.role.name.lower()):
             if user.institution:
                 qs = qs.filter(institution=user.institution)
         else:
@@ -87,7 +141,7 @@ class OrderDetailView(DetailView):
         qs = super().get_queryset()
         # Директор видит только свои предписания
         user = self.request.user
-        if not user.is_superuser and not (user.role and 'комитет' in user.role.name.lower()):
+        if not user.is_superuser and not (user.role and 'committee' in user.role.name.lower()):
             if user.institution:
                 qs = qs.filter(institution=user.institution)
             else:
@@ -127,7 +181,7 @@ class OrderCreateView(CreateView):
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
             order = form.save(commit=False)
-            # Если передан institution_id, используем его, иначе проверяем директора
+            # ... установка institution, created_by_user, status ...
             if self.request.GET.get('institution'):
                 order.institution_id = int(self.request.GET.get('institution'))
             elif self.request.user.institution:
@@ -136,11 +190,22 @@ class OrderCreateView(CreateView):
             order.status = 'NEW'
             order.save()
 
+            # Сохраняем нарушения
             for violation_form in violation_formset:
                 text = violation_form.cleaned_data.get('text')
                 if text:
                     violation, created = Violation.objects.get_or_create(description=text)
                     OrderViolation.objects.create(order=order, violation=violation)
+
+            # Обрабатываем загруженные файлы
+            try:
+                files = self.request.FILES.getlist('attachments')
+                handle_uploaded_files(order, files, self.request.user)
+            except ValidationError as e:
+                messages.error(self.request, str(e))
+                # Откатываем создание предписания (или просто удаляем его)
+                order.delete()
+                return self.render_to_response(self.get_context_data(form=form))
 
             messages.success(self.request, f'Предписание {order.number} успешно создано!')
             next_url = self.request.POST.get('next')
@@ -159,7 +224,7 @@ class OrderUpdateView(UpdateView):
     def dispatch(self, request, *args, **kwargs):
         # Проверяем, может ли пользователь редактировать это предписание
         order = self.get_object()
-        if not request.user.is_superuser and not (request.user.role and 'комитет' in request.user.role.name.lower()):
+        if not request.user.is_superuser and not (request.user.role and 'committee' in request.user.role.name.lower()):
             if not request.user.institution or request.user.institution.id != order.institution.id:
                 raise PermissionDenied("У вас нет прав на редактирование этого предписания.")
         return super().dispatch(request, *args, **kwargs)
@@ -181,16 +246,28 @@ class OrderUpdateView(UpdateView):
         context['is_director'] = bool(self.request.user.institution)
         return context
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['violation_formset'] = ViolationFormSet(self.request.POST, prefix='violations')
+        else:
+            initial_data = [{'text': ov.violation.description} for ov in self.object.order_violations.all()]
+            context['violation_formset'] = ViolationFormSet(initial=initial_data, prefix='violations')
+        context['title'] = f'Редактирование предписания {self.object.number}'
+        context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
+        context['is_director'] = bool(self.request.user.institution)
+        # Добавляем существующие файлы для отображения
+        context['existing_files'] = self.object.files.all()  # через related_name
+        return context
+
     def form_valid(self, form):
         context = self.get_context_data()
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
             order = form.save(commit=False)
-            # Для директора сохраняем institution и created_by_user неизменными
             if self.request.user.institution:
                 order.institution = self.request.user.institution
                 order.created_by_user = self.request.user
-                # status не меняем (оставляем как было)
             order.save()
 
             # Обновляем нарушения
@@ -200,6 +277,15 @@ class OrderUpdateView(UpdateView):
                 if text:
                     violation, created = Violation.objects.get_or_create(description=text)
                     OrderViolation.objects.create(order=order, violation=violation)
+
+            # Обрабатываем новые файлы (старые остаются)
+            try:
+                files = self.request.FILES.getlist('attachments')
+                if files:
+                    handle_uploaded_files(order, files, self.request.user)
+            except ValidationError as e:
+                messages.error(self.request, str(e))
+                return self.render_to_response(self.get_context_data(form=form))
 
             messages.success(self.request, f'Предписание {order.number} обновлено!')
             return redirect(self.success_url)

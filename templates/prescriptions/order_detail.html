@@ -65,12 +65,26 @@
 
             {% if order.files.exists %}
             <hr>
-            <h5>Прикреплённые файлы</h5>
-            <ul class="list-unstyled">
-                {% for file in order.files.all %}
-                <li><a href="{{ file.file_path }}" target="_blank">{{ file.original_filename }}</a></li>
-                {% endfor %}
-            </ul>
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-paperclip"></i> Прикреплённые файлы
+                </div>
+                <div class="card-body">
+                    {% if order.files.all %}
+                        <ul class="list-unstyled">
+                            {% for file in order.files.all %}
+                                <li>
+                                    <i class="bi bi-file-earmark"></i>
+                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                    <span class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">Файлы не прикреплены.</p>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>

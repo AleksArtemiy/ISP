@@ -502,10 +502,26 @@
                                 <i class="bi bi-paperclip me-2"></i> Прикреплённые файлы
                             </div>
                             <div class="card-body bg-white">
+                                <!-- Если есть существующие файлы (редактирование) -->
+                                {% if existing_files %}
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Текущие файлы:</label>
+                                        <ul class="list-unstyled">
+                                            {% for file in existing_files %}
+                                                <li class="mb-1">
+                                                    <i class="bi bi-file-earmark me-1"></i>
+                                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                                    <small class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</small>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold">Добавить файлы (макс. 5)</label>
-                                    <input type="file" name="attachments" multiple class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
-                                    <small class="text-muted">Допустимые форматы: PDF, Word, Excel, изображения. Не более 5 файлов.</small>
+                                    <label class="form-label fw-bold">Добавить новые файлы (макс. 5)</label>
+                                    <input type="file" name="attachments" multiple class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                                    <small class="text-muted">Допустимые форматы: PDF, Word, Excel, изображения (jpg, png). Максимальный размер файла – 10 МБ. Не более 5 файлов.</small>
                                 </div>
                             </div>
                         </div>
