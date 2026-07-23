@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Предписание {{ order.number }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📋 Предписание № {{ order.number }}</h2>
+        <div>
+            <a href="{% url 'prescriptions:order_update' order.pk %}" class="btn btn-warning">✏️ Редактировать</a>
+            {% if order.status != 'COMPLETED' %}
+            <form method="post" action="{% url 'prescriptions:complete_order' order.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">✅ Отметить выполненным</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'prescriptions:order_list' %}" class="btn btn-secondary">← Назад</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <strong>Учреждение:</strong> {{ order.institution.full_name }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Надзорный орган:</strong> {{ order.authority.name|default:"—" }}
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <strong>Дата выдачи:</strong> {{ order.issue_date|date:"d.m.Y" }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Срок исполнения:</strong> {{ order.deadline_date|date:"d.m.Y" }}
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <strong>Статус:</strong>
+                    <span class="badge 
+                        {% if order.status == 'COMPLETED' %}bg-success
+                        {% elif order.status == 'OVERDUE' %}bg-danger
+                        {% elif order.status == 'IN_PROGRESS' %}bg-warning
+                        {% else %}bg-primary{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                <div class="col-md-6">
+                    <strong>Ответственный:</strong> {{ order.created_by_user.get_full_name|default:order.created_by_user.email }}
+                </div>
+            </div>
+
+            <hr>
+            <h5>Нарушения</h5>
+            <ul class="list-group">
+                {% for ov in order.order_violations.all %}
+                <li class="list-group-item">{{ ov.violation.description }}</li>
+                {% empty %}
+                <li class="list-group-item text-muted">Нет нарушений</li>
+                {% endfor %}
+            </ul>
+
+            {% if order.files.exists %}
+            <hr>
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-paperclip"></i> Прикреплённые файлы
+                </div>
+                <div class="card-body">
+                    {% if order.files.all %}
+                        <ul class="list-unstyled">
+                            {% for file in order.files.all %}
+                                <li>
+                                    <i class="bi bi-file-earmark"></i>
+                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                    <span class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">Файлы не прикреплены.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

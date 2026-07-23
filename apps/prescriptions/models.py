@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 from django.conf import settings
 from apps.institutions.models import Institution
@@ -155,7 +157,12 @@ class OrderViolation(models.Model):
         verbose_name / verbose_name_plural.
     """
     id = models.AutoField(primary_key=True)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, db_column='order_id')
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        db_column='order_id',
+        related_name='order_violations'  # добавляем related_name
+    )
     violation = models.ForeignKey(Violation, on_delete=models.CASCADE, db_column='violation_id')
 
     class Meta:
@@ -191,6 +198,10 @@ class File(models.Model):
     file_path = models.TextField(db_column='file_path')
     uploaded_at = models.DateTimeField(auto_now_add=True, db_column='uploaded_at')
 
+    @property
+    def url(self):
+        return os.path.join(settings.MEDIA_URL, self.file_path)
+    
     class Meta:
         db_table = 'files'
         managed = False

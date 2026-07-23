@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="section-header">
-    <h2>📌 Реестр предписаний для {{ institution.name }}</h2>
+    <h2>{{ institution.name }}</h2>
     <div>
         <a href="{% url 'prescriptions:order_create' %}?institution={{ institution.id }}&next={{ request.path }}" class="btn-primary" style="text-decoration:none;">➕ Создать предписание</a>
         <button class="btn-primary" id="createFundingBtn" style="background:#2b6e4f; margin-left:0.5rem;">💰 Заявка на финансирование</button>
@@ -87,7 +87,7 @@
                 <path d="M9 6L15 12L9 18"/>
             </svg>
         </div>
-        <div><a href="#" class="prescription-link">{{ p.number }}</a></div>
+        <div><a href="{% url 'prescriptions:order_detail' p.id %}" class="prescription-link">{{ p.number }}</a></div>
         <div>{{ p.authority }}</div>
         <div class="deadline">{{ p.due_date|date:"d.m.Y" }}</div>
         <div class="status">

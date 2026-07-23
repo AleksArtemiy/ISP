@@ -374,6 +374,47 @@
                 justify-content: center;
             }
         }
+
+        .drop-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 2rem 1rem;
+    text-align: center;
+    background: #f8fafc;
+    transition: border-color 0.3s, background 0.3s;
+    cursor: pointer;
+}
+.drop-area.dragover {
+    border-color: #0f3b5c;
+    background: #e6f0f9;
+}
+.drop-area .upload-link {
+    color: #0f3b5c;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.file-list .file-item {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    padding: 0.3rem 0.8rem;
+    border-radius: 40px;
+    margin: 0.2rem;
+    border: 1px solid #e2e8f0;
+    font-size: 0.9rem;
+}
+.file-list .file-item .remove-file {
+    margin-left: 0.5rem;
+    cursor: pointer;
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+.file-list .file-item .remove-file:hover {
+    color: #b91c1c;
+}
     </style>
 {% endblock %}
 
@@ -496,16 +537,41 @@
                             </div>
                         </div>
 
-                        <!-- Файлы (заглушка) -->
+                        <!-- Файлы -->
                         <div class="card mb-4 border-0 shadow-sm">
                             <div class="card-header bg-light fw-bold text-primary">
                                 <i class="bi bi-paperclip me-2"></i> Прикреплённые файлы
                             </div>
                             <div class="card-body bg-white">
+                                <!-- Существующие файлы (при редактировании) -->
+                                {% if existing_files %}
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Текущие файлы:</label>
+                                        <ul class="list-unstyled">
+                                            {% for file in existing_files %}
+                                                <li class="mb-1">
+                                                    <i class="bi bi-file-earmark me-1"></i>
+                                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                                    <small class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</small>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Область перетаскивания -->
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold">Добавить файлы (макс. 5)</label>
-                                    <input type="file" name="attachments" multiple class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
-                                    <small class="text-muted">Допустимые форматы: PDF, Word, Excel, изображения. Не более 5 файлов.</small>
+                                    <label class="form-label fw-bold">Добавить новые файлы (макс. 5)</label>
+                                    <div id="drop-area" class="drop-area">
+                                        <div class="drop-zone">
+                                            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: var(--primary);"></i>
+                                            <p class="mt-2 mb-1">Перетащите файлы сюда или <span class="upload-link">выберите на компьютере</span></p>
+                                            <small class="text-muted">Поддерживаются: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (до 10 МБ каждый)</small>
+                                            <input type="file" id="fileInput" name="attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display: none;">
+                                        </div>
+                                    </div>
+                                    <div id="file-list" class="file-list mt-2"></div>
+                                    <button type="button" id="clear-files" class="btn btn-outline-danger btn-sm mt-2" style="display:none;">Очистить все</button>
                                 </div>
                             </div>
                         </div>
@@ -601,6 +667,151 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     updateFormIndexes();
+});
+
+// ========== Управление файлами ==========
+let selectedFiles = [];
+
+const dropArea = document.getElementById('drop-area');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('file-list');
+const clearBtn = document.getElementById('clear-files');
+
+function updateFileList() {
+    fileList.innerHTML = '';
+    if (selectedFiles.length === 0) {
+        clearBtn.style.display = 'none';
+        return;
+    }
+    clearBtn.style.display = 'inline-block';
+    selectedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        const icon = getFileIcon(file.name);
+        item.innerHTML = `
+            <i class="bi ${icon} me-1"></i>
+            <span>${file.name}</span>
+            <small class="text-muted ms-1">(${(file.size / 1024).toFixed(1)} КБ)</small>
+            <span class="remove-file" data-index="${index}">&times;</span>
+        `;
+        fileList.appendChild(item);
+    });
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const map = {
+        pdf: 'bi-filetype-pdf',
+        doc: 'bi-filetype-doc',
+        docx: 'bi-filetype-docx',
+        xls: 'bi-filetype-xls',
+        xlsx: 'bi-filetype-xlsx',
+        jpg: 'bi-filetype-jpg',
+        jpeg: 'bi-filetype-jpg',
+        png: 'bi-filetype-png',
+    };
+    return map[ext] || 'bi-file-earmark';
+}
+
+function addFiles(files) {
+    if (selectedFiles.length + files.length > 5) {
+        alert('Можно добавить не более 5 файлов.');
+        return;
+    }
+    const maxSize = 10 * 1024 * 1024;
+    const allowedExtensions = ['pdf','doc','docx','xls','xlsx','jpg','jpeg','png'];
+    for (let f of files) {
+        if (f.size > maxSize) {
+            alert(`Файл "${f.name}" превышает 10 МБ.`);
+            return;
+        }
+        const ext = f.name.split('.').pop().toLowerCase();
+        if (!allowedExtensions.includes(ext)) {
+            alert(`Недопустимый формат "${ext}". Разрешены: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG.`);
+            return;
+        }
+    }
+    selectedFiles = selectedFiles.concat(files);
+    updateFileList();
+    fileInput.value = ''; // очищаем input для повторного выбора
+}
+
+// Обработка выбора через input
+fileInput.addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    addFiles(files);
+});
+
+// Drag-and-drop
+dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropArea.classList.add('dragover');
+});
+dropArea.addEventListener('dragleave', () => {
+    dropArea.classList.remove('dragover');
+});
+dropArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files);
+    addFiles(files);
+});
+
+// Клик по области открывает диалог
+dropArea.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// Удаление отдельного файла
+fileList.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove-file')) {
+        const index = parseInt(e.target.dataset.index);
+        selectedFiles.splice(index, 1);
+        updateFileList();
+    }
+});
+
+// Очистить все
+clearBtn.addEventListener('click', () => {
+    selectedFiles = [];
+    updateFileList();
+    fileInput.value = '';
+});
+
+// Перехват отправки формы для отправки файлов из массива
+const form = document.getElementById('orderForm');
+form.addEventListener('submit', function(e) {
+    // Если есть файлы в массиве, отправляем через Fetch
+    if (selectedFiles.length > 0) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        // Удаляем поле attachments (оно может быть пустым или содержать старые файлы)
+        formData.delete('attachments');
+        // Добавляем каждый файл из массива
+        selectedFiles.forEach(file => {
+            formData.append('attachments', file);
+        });
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+        })
+        .then(response => {
+            if (response.ok) {
+                // Перенаправление на список предписаний
+                window.location.href = '{% url "prescriptions:order_list" %}';
+            } else {
+                alert('Ошибка при сохранении. Проверьте данные.');
+            }
+        })
+        .catch(() => {
+            alert('Ошибка отправки.');
+        });
+    }
+    // Если файлов нет, форма отправится стандартно
 });
 </script>
 
