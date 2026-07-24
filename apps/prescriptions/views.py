@@ -17,15 +17,33 @@ from .forms import OrderForm, ViolationFormSet
 @login_required
 def complete_order(request, pk):
     order = get_object_or_404(Order, pk=pk)
-    # Проверяем, что пользователь имеет право отмечать выполненным
-    # Если директор - только своё учреждение
+
+    # Проверка прав (только своё учреждение или комитет/админ)
     if not request.user.is_superuser and not (request.user.role and 'committee' in request.user.role.name.lower()):
         if not request.user.institution or request.user.institution.id != order.institution.id:
             raise PermissionDenied("У вас нет прав на это действие.")
-    order.status = 'COMPLETED'
-    order.save()
-    messages.success(request, f'Предписание {order.number} отмечено как выполненное.')
-    return redirect('institutions:detail', pk=order.institution.id)
+
+    if request.method == 'POST':
+        report_file = request.FILES.get('report')
+        if not report_file:
+            messages.error(request, 'Необходимо загрузить отчёт о выполнении.')
+            return render(request, 'prescriptions/complete_order.html', {'order': order})
+
+        try:
+            # Сохраняем файл через существующую функцию
+            handle_uploaded_files(order, [report_file], request.user)
+            order.status = 'COMPLETED'
+            order.save()
+            messages.success(request, f'Предписание {order.number} выполнено, отчёт загружен.')
+        except ValidationError as e:
+            messages.error(request, str(e))
+            return render(request, 'prescriptions/complete_order.html', {'order': order})
+
+        # Редирект на страницу учреждения (или список предписаний)
+        return redirect('institution_dashboard', institution_id=order.institution.id)
+
+    # GET-запрос – показываем форму
+    return render(request, 'prescriptions/complete_order.html', {'order': order})
 
 def handle_uploaded_files(order, files, user):
     """
@@ -135,19 +153,22 @@ class OrderListView(ListView):
 class OrderDetailView(DetailView):
     model = Order
     template_name = 'prescriptions/order_detail.html'
-    content_object_name = 'order'
+    context_object_name = 'order'
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # Директор видит только свои предписания
         user = self.request.user
         if not user.is_superuser and not (user.role and 'committee' in user.role.name.lower()):
             if user.institution:
                 qs = qs.filter(institution=user.institution)
             else:
-                # Если у пользователя нет учреждения и он не комитет/админ, возвращаем пустой queryset
                 return qs.none()
         return qs.select_related('institution', 'authority', 'created_by_user').prefetch_related('order_violations__violation', 'files')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['next'] = self.request.GET.get('next', '')
+        return context
 
 class OrderCreateView(CreateView):
     model = Order
@@ -168,12 +189,13 @@ class OrderCreateView(CreateView):
         if self.request.POST:
             context['violation_formset'] = ViolationFormSet(self.request.POST, prefix='violations')
         else:
-            context['violation_formset'] = ViolationFormSet(prefix='violations')
-        context['title'] = 'Создание предписания'
+            initial_data = [{'text': ov.violation.description} for ov in self.object.order_violations.all()]
+            context['violation_formset'] = ViolationFormSet(initial=initial_data, prefix='violations')
+        context['title'] = f'Редактирование предписания {self.object.number}'
         context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
         context['is_director'] = bool(self.request.user.institution)
-        context['hide_institution_fields'] = bool(self.request.GET.get('institution') or self.request.user.institution)
-        context['next'] = self.request.GET.get('next', '')
+        context['existing_files'] = self.object.files.all()
+        context['next'] = self.request.GET.get('next', '')  # ← добавлено
         return context
 
     def form_valid(self, form):
@@ -244,6 +266,7 @@ class OrderUpdateView(UpdateView):
         context['title'] = f'Редактирование предписания {self.object.number}'
         context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
         context['is_director'] = bool(self.request.user.institution)
+        context['next'] = self.request.GET.get('next', '')
         return context
 
     def get_context_data(self, **kwargs):

@@ -15,7 +15,7 @@
                 <button type="submit" class="btn btn-success">✅ Отметить выполненным</button>
             </form>
             {% endif %}
-            <a href="{% url 'prescriptions:order_list' %}" class="btn btn-secondary">← Назад</a>
+            <a href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}" class="btn btn-secondary">Назад</a>
         </div>
     </div>
 

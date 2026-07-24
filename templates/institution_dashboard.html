@@ -87,7 +87,7 @@
                 <path d="M9 6L15 12L9 18"/>
             </svg>
         </div>
-        <div><a href="{% url 'prescriptions:order_detail' p.id %}" class="prescription-link">{{ p.number }}</a></div>
+        <div><a href="{% url 'prescriptions:order_detail' p.id %}?next={{ request.path }}" class="prescription-link">{{ p.number }}</a></div>
         <div>{{ p.authority }}</div>
         <div class="deadline">{{ p.due_date|date:"d.m.Y" }}</div>
         <div class="status">

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">Завершение предписания №{{ order.number }}</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Для завершения предписания загрузите отчёт о выполнении.</p>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="report" class="form-label fw-bold">Отчёт (один файл)</label>
+                    <input type="file" class="form-control" id="report" name="report" 
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" required>
+                    <small class="text-muted">Допустимые форматы: PDF, Word, Excel, JPG, PNG. Максимальный размер – 10 МБ.</small>
+                </div>
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Подтвердить выполнение
+                </button>
+                <a href="{% url 'prescriptions:order_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Отмена
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
