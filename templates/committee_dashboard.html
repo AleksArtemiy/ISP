@@ -215,10 +215,21 @@
                     <div>{{ presc.authority }}</div>
                     <div class="deadline">{{ presc.due_date|date:"d.m.Y" }}</div>
                     <div class="status">
-                        <div class="progress {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
-                            <div class="fill {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}" style="width: {{ presc.progress_percent }}%"></div>
+                        <div class="progress 
+                            {% if presc.status_class == 'green' %}green
+                            {% elif presc.status_class == 'red' %}red
+                            {% else %}yellow{% endif %}">
+                            <div class="fill 
+                                {% if presc.status_class == 'green' %}green
+                                {% elif presc.status_class == 'red' %}red
+                                {% else %}yellow{% endif %}" 
+                                style="width: {{ presc.progress_percent }}%">
+                            </div>
                         </div>
-                        <div class="status-text {% if presc.status_class == 'green' %}green{% else %}yellow{% endif %}">
+                        <div class="status-text 
+                            {% if presc.status_class == 'green' %}green
+                            {% elif presc.status_class == 'red' %}red-text
+                            {% else %}yellow-text{% endif %}">
                             {{ presc.status_text }}
                         </div>
                     </div>

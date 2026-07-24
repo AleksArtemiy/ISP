@@ -581,3 +581,74 @@ body {
 .progress-fill.pastel-green {
     background: #a7f3d0;;
 }
+
+/* .progress.red .fill { background: #ef4444; }
+.status-text.red-text { color: #ef4444; }
+
+.progress.red .fill { background: #ef4444; } */
+/* Прогресс-бар */
+.progress {
+    width: 100%;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 4px 0;
+}
+
+.progress .fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.3s ease;
+}
+
+/* Цвета заполнения */
+.progress .fill.green {
+    background: #22c55e;  /* зелёный */
+}
+.progress .fill.yellow {
+    background: #eab308;  /* жёлтый */
+}
+.progress .fill.red {
+    background: #ef4444;  /* красный */
+}
+
+/* Текст статуса */
+.status-text.green {
+    color: #22c55e;
+}
+.status-text.yellow {
+    color: #eab308;
+}
+.status-text.red-text {
+    color: #ef4444;
+}
+
+/* Цвета заполнения — принудительно */
+.progress .fill.green {
+    background: #22c55e !important;
+}
+.progress .fill.yellow {
+    background: #eab308 !important;
+}
+.progress .fill.red {
+    background: #ef4444 !important;
+}
+
+div.progress .fill.green {
+    background: #22c55e;
+}
+div.progress .fill.yellow {
+    background: #eab308;
+}
+div.progress .fill.red {
+    background: #ef4444;
+}
+
+.progress .fill.green { background: #22c55e !important; }
+.progress .fill.yellow { background: #eab308 !important; }
+.progress .fill.red { background: #ef4444 !important; }
+/* Для уверенности: */
+.fill.green { background: #22c55e !important; }
+.fill.yellow { background: #eab308 !important; }
+.progress.red { background: #ef4444 !important; }

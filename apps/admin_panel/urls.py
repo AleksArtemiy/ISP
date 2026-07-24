@@ -37,7 +37,7 @@ urlpatterns = [
     path('authority/<int:pk>/delete/', views.authority_delete, name='admin_authority_delete'),
 
     # Типы учреждений
-path('institution-type/create/', views.institution_type_create, name='admin_institution_type_create'),
-path('institution-type/<int:pk>/edit/', views.institution_type_edit, name='admin_institution_type_edit'),
-path('institution-type/<int:pk>/delete/', views.institution_type_delete, name='admin_institution_type_delete'),
+    path('institution-type/create/', views.institution_type_create, name='admin_institution_type_create'),
+    path('institution-type/<int:pk>/edit/', views.institution_type_edit, name='admin_institution_type_edit'),
+    path('institution-type/<int:pk>/delete/', views.institution_type_delete, name='admin_institution_type_delete'),
 ]

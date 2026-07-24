@@ -171,9 +171,20 @@ def committee_dashboard(request):
             progress = 0
             days = (today - order.deadline_date).days
             status_text = f'Просрочено на {days} дн.'
-        else:
+        elif order.status == 'EXPIRING':
+            status_class = 'yellow'
+            progress = 50
             days_left = (order.deadline_date - today).days
-            if days_left <= 14:
+            status_text = f'Истекает через {days_left} дн.'
+        else:
+            # NEW или IN_PROGRESS
+            days_left = (order.deadline_date - today).days
+            if days_left < 0:
+                # На всякий случай, если статус не OVERDUE, но срок уже прошёл
+                status_class = 'red'
+                progress = 0
+                status_text = f'Просрочено на {-days_left} дн.'
+            elif days_left <= 14:
                 status_class = 'yellow'
                 progress = 50
                 status_text = f'До окончания: {days_left} дн.'
@@ -245,12 +256,23 @@ def institution_dashboard(request, institution_id):
             progress = 0
             days = (today - order.deadline_date).days
             status_text = f'Просрочено на {days} дн.'
-        else:
+        elif order.status == 'EXPIRING':
+            status = 'expiring'
+            progress = 50
             days_left = (order.deadline_date - today).days
-            if days_left <= 14:
+            status_text = f'Истекает через {days_left} дн.'
+        else:
+            # NEW или IN_PROGRESS
+            days_left = (order.deadline_date - today).days
+            if days_left < 0:
+                # На случай, если срок прошёл, но статус не OVERDUE
+                status = 'overdue'
+                progress = 0
+                status_text = f'Просрочено на {-days_left} дн.'
+            elif days_left <= 14:
                 status = 'expiring'
                 progress = 50
-                status_text = f'До окончания: {days_left} дн.'
+                status_text = f'Истекает через {days_left} дн.'
             else:
                 status = 'in_progress'
                 progress = 75

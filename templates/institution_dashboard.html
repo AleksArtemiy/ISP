@@ -91,11 +91,25 @@
         <div>{{ p.authority }}</div>
         <div class="deadline">{{ p.due_date|date:"d.m.Y" }}</div>
         <div class="status">
-            <div class="progress {% if p.status == 'completed' %}green{% else %}yellow{% endif %}">
-                <div class="fill {% if p.status == 'completed' %}green{% else %}yellow{% endif %}" style="width: {{ p.progress_percent|default:50 }}%"></div>
+            <div class="progress 
+                {% if p.status == 'completed' %}green
+                {% elif p.status == 'overdue' %}red
+                {% elif p.status == 'expiring' %}yellow
+                {% else %}yellow{% endif %}">
+                <div class="fill 
+                    {% if p.status == 'completed' %}green
+                    {% elif p.status == 'overdue' %}red
+                    {% elif p.status == 'expiring' %}yellow
+                    {% else %}yellow{% endif %}" 
+                    style="width: {{ p.progress_percent|default:50 }}%">
+                </div>
             </div>
-            <div class="status-text {% if p.status == 'completed' %}green{% else %}yellow{% endif %}">
-                {% if p.status == 'overdue' %}Просрочено{% elif p.status == 'expiring' %}Истекает{% elif p.status == 'completed' %}Исполнено{% else %}В работе{% endif %}
+            <div class="status-text 
+                {% if p.status == 'completed' %}green
+                {% elif p.status == 'overdue' %}red-text
+                {% elif p.status == 'expiring' %}yellow-text
+                {% else %}yellow{% endif %}">
+                {{ p.status_text }}
             </div>
         </div>
         <div class="responsible">{{ p.responsible }}</div>

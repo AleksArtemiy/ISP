@@ -4,14 +4,14 @@
 {% block title %}Подтверждение удаления{% endblock %}
 
 {% block content %}
-<div style="max-width: 500px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 24px; border: 1px solid #e8edf3; text-align: center;">
+<div style="text-align:center; padding:1rem 0;">
     <h3>Удалить {{ type }}?</h3>
-    <p style="margin: 1rem 0;">Вы уверены, что хотите удалить <strong>{{ object }}</strong>?</p>
-    <form method="post">
+    <p>Вы уверены, что хотите удалить <strong>{{ object.short_name|default:object }}</strong>?</p>
+    <form method="post" action="{{ request.path }}">
         {% csrf_token %}
-        <div style="display: flex; gap: 1rem; justify-content: center;">
-            <button type="submit" class="btn-primary" style="background: #ef4444;">Да, удалить</button>
-            <a href="{% url 'admin_panel:admin_panel' %}" class="btn-primary" style="background: #94a3b8; text-decoration: none; padding: 0.5rem 1.2rem; border-radius: 40px;">Отмена</a>
+        <div style="display:flex; gap:1rem; justify-content:center; margin-top:1.5rem;">
+            <button type="submit" class="admin-btn admin-btn-danger">Да, удалить</button>
+            <button type="button" class="admin-btn admin-btn-secondary" onclick="closeModal()">Отмена</button>
         </div>
     </form>
 </div>

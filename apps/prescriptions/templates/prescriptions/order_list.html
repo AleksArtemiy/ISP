@@ -200,8 +200,9 @@
                                 <span class="badge 
                                     {% if order.status == 'COMPLETED' %}bg-success
                                     {% elif order.status == 'OVERDUE' %}bg-danger
-                                    {% elif order.status == 'IN_PROGRESS' %}bg-warning
-                                    {% else %}bg-primary{% endif %}">
+                                    {% elif order.status == 'EXPIRING' %}bg-warning text-dark
+                                    {% elif order.status == 'IN_PROGRESS' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}">
                                     {{ order.get_status_display }}
                                 </span>
                             </td>

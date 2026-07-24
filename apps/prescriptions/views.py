@@ -189,13 +189,13 @@ class OrderCreateView(CreateView):
         if self.request.POST:
             context['violation_formset'] = ViolationFormSet(self.request.POST, prefix='violations')
         else:
-            initial_data = [{'text': ov.violation.description} for ov in self.object.order_violations.all()]
-            context['violation_formset'] = ViolationFormSet(initial=initial_data, prefix='violations')
-        context['title'] = f'Редактирование предписания {self.object.number}'
+            # Для создания — пустой формсет
+            context['violation_formset'] = ViolationFormSet(prefix='violations')
+        context['title'] = 'Создание предписания'
         context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
         context['is_director'] = bool(self.request.user.institution)
-        context['existing_files'] = self.object.files.all()
-        context['next'] = self.request.GET.get('next', '')  # ← добавлено
+        context['hide_institution_fields'] = bool(self.request.GET.get('institution') or self.request.user.institution)
+        context['next'] = self.request.GET.get('next', '')
         return context
 
     def form_valid(self, form):
@@ -203,7 +203,6 @@ class OrderCreateView(CreateView):
         violation_formset = context['violation_formset']
         if violation_formset.is_valid():
             order = form.save(commit=False)
-            # ... установка institution, created_by_user, status ...
             if self.request.GET.get('institution'):
                 order.institution_id = int(self.request.GET.get('institution'))
             elif self.request.user.institution:
@@ -212,20 +211,17 @@ class OrderCreateView(CreateView):
             order.status = 'NEW'
             order.save()
 
-            # Сохраняем нарушения
             for violation_form in violation_formset:
                 text = violation_form.cleaned_data.get('text')
                 if text:
                     violation, created = Violation.objects.get_or_create(description=text)
                     OrderViolation.objects.create(order=order, violation=violation)
 
-            # Обрабатываем загруженные файлы
             try:
                 files = self.request.FILES.getlist('attachments')
                 handle_uploaded_files(order, files, self.request.user)
             except ValidationError as e:
                 messages.error(self.request, str(e))
-                # Откатываем создание предписания (или просто удаляем его)
                 order.delete()
                 return self.render_to_response(self.get_context_data(form=form))
 
@@ -237,6 +233,7 @@ class OrderCreateView(CreateView):
         else:
             return self.render_to_response(self.get_context_data(form=form))
 
+
 class OrderUpdateView(UpdateView):
     model = Order
     form_class = OrderForm
@@ -244,7 +241,6 @@ class OrderUpdateView(UpdateView):
     success_url = reverse_lazy('prescriptions:order_list')
 
     def dispatch(self, request, *args, **kwargs):
-        # Проверяем, может ли пользователь редактировать это предписание
         order = self.get_object()
         if not request.user.is_superuser and not (request.user.role and 'committee' in request.user.role.name.lower()):
             if not request.user.institution or request.user.institution.id != order.institution.id:
@@ -266,21 +262,8 @@ class OrderUpdateView(UpdateView):
         context['title'] = f'Редактирование предписания {self.object.number}'
         context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
         context['is_director'] = bool(self.request.user.institution)
+        context['existing_files'] = self.object.files.all()
         context['next'] = self.request.GET.get('next', '')
-        return context
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context['violation_formset'] = ViolationFormSet(self.request.POST, prefix='violations')
-        else:
-            initial_data = [{'text': ov.violation.description} for ov in self.object.order_violations.all()]
-            context['violation_formset'] = ViolationFormSet(initial=initial_data, prefix='violations')
-        context['title'] = f'Редактирование предписания {self.object.number}'
-        context['violation_list'] = Violation.objects.all().values_list('description', flat=True)
-        context['is_director'] = bool(self.request.user.institution)
-        # Добавляем существующие файлы для отображения
-        context['existing_files'] = self.object.files.all()  # через related_name
         return context
 
     def form_valid(self, form):
@@ -293,7 +276,6 @@ class OrderUpdateView(UpdateView):
                 order.created_by_user = self.request.user
             order.save()
 
-            # Обновляем нарушения
             order.order_violations.all().delete()
             for violation_form in violation_formset:
                 text = violation_form.cleaned_data.get('text')
@@ -301,7 +283,6 @@ class OrderUpdateView(UpdateView):
                     violation, created = Violation.objects.get_or_create(description=text)
                     OrderViolation.objects.create(order=order, violation=violation)
 
-            # Обрабатываем новые файлы (старые остаются)
             try:
                 files = self.request.FILES.getlist('attachments')
                 if files:

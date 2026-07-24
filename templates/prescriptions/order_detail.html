@@ -44,6 +44,7 @@
                         {% if order.status == 'COMPLETED' %}bg-success
                         {% elif order.status == 'OVERDUE' %}bg-danger
                         {% elif order.status == 'IN_PROGRESS' %}bg-warning
+                        {% elif order.status == 'EXPIRING' %}bg-warning text-dark
                         {% else %}bg-primary{% endif %}">
                         {{ order.get_status_display }}
                     </span>
