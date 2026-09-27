@@ -17,6 +17,7 @@
     --yellow: #d99400;
     --yellow-bg: #f3e9b2;
     --blue: #2563eb;
+    --red: #B30000;
 }
 
 body {
@@ -219,6 +220,10 @@ body {
 
 .fill.yellow {
     background: var(--yellow);
+}
+
+.fill.red {
+    background: var(--red);
 }
 
 .status-text {

@@ -78,6 +78,7 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ('NEW', 'Новое'),
         ('IN_PROGRESS', 'В работе'),
+        ('EXPIRING', 'Истекает'),
         ('COMPLETED', 'Выполнено'),
         ('OVERDUE', 'Просрочено'),
     ]

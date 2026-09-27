@@ -15,7 +15,7 @@
                 <button type="submit" class="btn btn-success">✅ Отметить выполненным</button>
             </form>
             {% endif %}
-            <a href="{% url 'prescriptions:order_list' %}" class="btn btn-secondary">← Назад</a>
+            <a href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}" class="btn btn-secondary">Назад</a>
         </div>
     </div>
 
@@ -44,6 +44,7 @@
                         {% if order.status == 'COMPLETED' %}bg-success
                         {% elif order.status == 'OVERDUE' %}bg-danger
                         {% elif order.status == 'IN_PROGRESS' %}bg-warning
+                        {% elif order.status == 'EXPIRING' %}bg-warning text-dark
                         {% else %}bg-primary{% endif %}">
                         {{ order.get_status_display }}
                     </span>
