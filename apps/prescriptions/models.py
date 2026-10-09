@@ -16,14 +16,14 @@ class SupervisoryAuthority(models.Model):
 
     Мета:
         db_table = 'supervisory_authorities' — имя таблицы в БД.
-        managed = False — таблица уже существует, Django не управляет её структурой.
+        managed = True — таблица уже существует, Django не управляет её структурой.
     """
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)
 
     class Meta:
         db_table = 'supervisory_authorities'
-        managed = False
+        managed = True
         verbose_name = 'Надзорный орган'
         verbose_name_plural = 'Надзорные органы'
 
@@ -67,7 +67,7 @@ class Order(models.Model):
 
     Мета:
         db_table = 'orders'
-        managed = False
+        managed = True
         ordering = ('-created_at',) — сначала новые.
 
     Методы:
@@ -82,9 +82,9 @@ class Order(models.Model):
         ('COMPLETED', 'Выполнено'),
         ('OVERDUE', 'Просрочено'),
     ]
-
+    
     id = models.AutoField(primary_key=True)
-    number = models.CharField(max_length=100, db_column='number')
+    number = models.CharField(max_length=100, unique=True, db_column='number')
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE, db_column='institution_id')
     authority = models.ForeignKey(SupervisoryAuthority, on_delete=models.CASCADE, db_column='authority_id')
     created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='created_by_user_id')
@@ -96,7 +96,7 @@ class Order(models.Model):
 
     class Meta:
         db_table = 'orders'
-        managed = False
+        managed = True
         verbose_name = 'Предписание'
         verbose_name_plural = 'Предписания'
         ordering = ('-created_at',)
@@ -122,7 +122,7 @@ class Violation(models.Model):
 
     Мета:
         db_table = 'violations'
-        managed = False
+        managed = True
         verbose_name / verbose_name_plural.
     """
     id = models.AutoField(primary_key=True)
@@ -130,7 +130,7 @@ class Violation(models.Model):
 
     class Meta:
         db_table = 'violations'
-        managed = False
+        managed = True
         verbose_name = 'Нарушение'
         verbose_name_plural = 'Нарушения'
 
@@ -154,7 +154,7 @@ class OrderViolation(models.Model):
 
     Мета:
         db_table = 'order_violations'
-        managed = False
+        managed = True
         verbose_name / verbose_name_plural.
     """
     id = models.AutoField(primary_key=True)
@@ -168,7 +168,7 @@ class OrderViolation(models.Model):
 
     class Meta:
         db_table = 'order_violations'
-        managed = False
+        managed = True
         unique_together = (('order', 'violation'),)
         verbose_name = 'Связь предписания и нарушения'
         verbose_name_plural = 'Связи предписаний и нарушений'
@@ -190,7 +190,7 @@ class File(models.Model):
 
     Мета:
         db_table = 'files'
-        managed = False
+        managed = True
     """
     id = models.AutoField(primary_key=True)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, db_column='order_id', related_name='files')
@@ -205,7 +205,7 @@ class File(models.Model):
     
     class Meta:
         db_table = 'files'
-        managed = False
+        managed = True
         verbose_name = 'Файл'
         verbose_name_plural = 'Файлы'
 

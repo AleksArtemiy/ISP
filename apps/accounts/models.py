@@ -17,7 +17,7 @@ class Role(models.Model):
     
     class Meta:
         db_table = 'roles'
-        managed = False
+        managed = True
         verbose_name = 'Роль'
         verbose_name_plural = 'Роли'
     
