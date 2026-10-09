@@ -23,7 +23,7 @@ class InstitutionType(models.Model):
 
     class Meta:
         db_table = 'institution_types'
-        managed = False
+        managed = True
         verbose_name = 'Тип учреждения'
         verbose_name_plural = 'Типы учреждений'
 
@@ -105,7 +105,7 @@ class Institution(models.Model):
 
     class Meta:
         db_table = 'institutions'
-        managed = False
+        managed = True
         verbose_name = 'Учреждение'
         verbose_name_plural = 'Учреждения'
         ordering = ('short_name',)  # сортировка по умолчанию
