@@ -1,32 +1,83 @@
-# Byte-compiled / optimized / DLL files
+# =========================
+# Python
+# =========================
+
 __pycache__/
-media/
 *.py[cod]
 *.pyo
 *.pyc
+*.pyd
+*.so
 
-# Databases
-*.sqlite3
-db.sqlite3
+# =========================
+# Virtual environments
+# =========================
 
-# Django stuff:
-*.log
-local_settings.py
-
-# Virtual Environment
+.venv/
 venv/
 env/
 ENV/
-.venv
 
-# IDE (Visual Studio)
+# =========================
+# Environment / secrets
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# =========================
+# Django
+# =========================
+
+*.log
+local_settings.py
+
+media/
+staticfiles/
+
+# =========================
+# Databases
+# =========================
+
+*.sqlite3
+db.sqlite3
+
+# =========================
+# Tests / coverage
+# =========================
+
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# =========================
+# Python packaging
+# =========================
+
+*.egg-info/
+dist/
+build/
+
+# =========================
+# IDE / editors
+# =========================
+
+.vscode/
+.idea/
+
 .vs/
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
 
-# Python packages
-*.egg-info/
-dist/
-build/
+# =========================
+# OS files
+# =========================
+
+.DS_Store
+Thumbs.db
