@@ -1,66 +1,261 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from django.core.exceptions import ValidationError
+"""
+Представления приложения accounts.
 
-User = get_user_model()
+Модуль отвечает за:
+
+    - авторизацию пользователя;
+    - завершение пользовательской сессии;
+    - определение стартовой страницы после входа.
+
+Проверки ролей выполняются через централизованный модуль
+apps.accounts.permissions и стабильное поле Role.code.
+"""
+
+from django.contrib import messages
+from django.contrib.auth import (
+    authenticate,
+    login,
+    logout,
+)
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import (
+    redirect,
+    render,
+)
+from django.urls import reverse
+
+from .permissions import (
+    is_committee,
+    is_director,
+    is_django_admin,
+)
 
 
 def get_redirect_url(user):
     """
-    Определяет URL для перенаправления после входа в зависимости от роли пользователя.
+    Определяет безопасную стартовую страницу пользователя
+    после успешной авторизации.
+
+    Правила:
+
+        Django-superuser:
+            административная панель.
+
+        COMMITTEE:
+            общий дашборд Комитета образования.
+
+        DIRECTOR:
+            дашборд собственного учреждения.
+
+    Returns:
+        str | None:
+            URL для перенаправления либо None, если учётная запись
+            настроена некорректно.
+
+    Принцип безопасности:
+        Неизвестная роль или директор без учреждения не получают
+        доступ к дашборду Комитета по умолчанию.
+
+        Используется стратегия deny by default.
     """
-    if user.is_superuser:
-        return reverse('admin_panel:admin_panel')
-    
-    # Проверяем, есть ли у пользователя роль "Комитет" (регистронезависимо)
-    if user.role and 'комитет' in user.role.name.lower():
-        return reverse('committee_dashboard')
-    
-    # Если пользователь привязан к учреждению, перенаправляем на дашборд учреждения
-    if user.institution:
-        return reverse('institution_dashboard', kwargs={'institution_id': user.institution.id})
-    
-    # По умолчанию – дашборд комитета
-    return reverse('committee_dashboard')
+
+    if not getattr(user, "is_authenticated", False):
+        return None
+
+    if is_django_admin(user):
+        return reverse(
+            "admin_panel:admin_panel",
+        )
+
+    if is_committee(user):
+        return reverse(
+            "committee_dashboard",
+        )
+
+    if is_director(user):
+        if user.institution_id is None:
+            return None
+
+        return reverse(
+            "institution_dashboard",
+            kwargs={
+                "institution_id": user.institution_id,
+            },
+        )
+
+    return None
 
 
 def login_view(request):
-    # Если пользователь уже залогинен, сразу перенаправляем
+    """
+    Выполняет авторизацию пользователя по email и паролю.
+
+    Защита от user enumeration:
+        При ошибке авторизации система не сообщает,
+        существует ли введённый email.
+
+        Для неизвестного email и неправильного пароля
+        используется одинаковое сообщение:
+
+            "Неверный email или пароль."
+
+    Также выполняется проверка корректности настройки
+    роли пользователя до создания авторизованной сессии.
+    """
+
+    # --------------------------------------------------------
+    # Уже авторизованный пользователь
+    # --------------------------------------------------------
+
     if request.user.is_authenticated:
-        return redirect(get_redirect_url(request.user))
-    
-    if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
-        
+        redirect_url = get_redirect_url(
+            request.user,
+        )
+
+        if redirect_url is not None:
+            return redirect(
+                redirect_url,
+            )
+
+        # Пользователь существует, но его роль/учреждение
+        # настроены некорректно.
+        #
+        # Завершаем сессию, чтобы исключить цикл перенаправлений
+        # и случайное предоставление доступа.
+        logout(request)
+
+        messages.error(
+            request,
+            (
+                "Учётная запись настроена некорректно. "
+                "Обратитесь к администратору системы."
+            ),
+        )
+
+        return render(
+            request,
+            "accounts/login.html",
+        )
+
+    # --------------------------------------------------------
+    # Авторизация
+    # --------------------------------------------------------
+
+    if request.method == "POST":
+        email = request.POST.get(
+            "email",
+            "",
+        ).strip()
+
+        password = request.POST.get(
+            "password",
+            "",
+        )
+
         if not email:
-            messages.error(request, 'Пожалуйста, введите email')
-            return render(request, 'accounts/login.html')
-        
+            messages.error(
+                request,
+                "Пожалуйста, введите email.",
+            )
+
+            return render(
+                request,
+                "accounts/login.html",
+            )
+
         if not password:
-            messages.error(request, 'Пожалуйста, введите пароль')
-            return render(request, 'accounts/login.html')
-        
-        user = authenticate(request, username=email, password=password)
-        
-        if user is not None:
-            login(request, user)
-            return redirect(get_redirect_url(user))
-        else:
-            try:
-                User.objects.get(email=email)
-                messages.error(request, 'Неверный пароль')
-            except User.DoesNotExist:
-                messages.error(request, 'Пользователь с таким email не найден.')
-    
-    return render(request, 'accounts/login.html')
+            messages.error(
+                request,
+                "Пожалуйста, введите пароль.",
+            )
+
+            return render(
+                request,
+                "accounts/login.html",
+            )
+
+        user = authenticate(
+            request,
+            username=email,
+            password=password,
+        )
+
+        # ----------------------------------------------------
+        # Неверные учётные данные
+        # ----------------------------------------------------
+
+        if user is None:
+            # Не различаем:
+            #
+            # - отсутствующий email;
+            # - неправильный пароль;
+            # - неактивную учётную запись.
+            #
+            # Это снижает возможность перечисления пользователей.
+            messages.error(
+                request,
+                "Неверный email или пароль.",
+            )
+
+            return render(
+                request,
+                "accounts/login.html",
+            )
+
+        # ----------------------------------------------------
+        # Проверка корректности роли
+        # ----------------------------------------------------
+
+        redirect_url = get_redirect_url(
+            user,
+        )
+
+        if redirect_url is None:
+            # Сессию ещё не создавали.
+            #
+            # Пользователь с неизвестной ролью или директор
+            # без учреждения не получает доступ автоматически.
+            messages.error(
+                request,
+                (
+                    "Учётная запись настроена некорректно. "
+                    "Обратитесь к администратору системы."
+                ),
+            )
+
+            return render(
+                request,
+                "accounts/login.html",
+            )
+
+        # ----------------------------------------------------
+        # Успешный вход
+        # ----------------------------------------------------
+
+        login(
+            request,
+            user,
+        )
+
+        return redirect(
+            redirect_url,
+        )
+
+    return render(
+        request,
+        "accounts/login.html",
+    )
 
 
 @login_required
 def logout_view(request):
+    """
+    Завершает пользовательскую сессию и перенаправляет
+    пользователя на страницу входа.
+    """
+
     logout(request)
-    return redirect('login')
+
+    return redirect(
+        "login",
+    )
