@@ -42,18 +42,34 @@ apps.accounts.permissions и стабильные коды Role.code.
         при создании устанавливается NEW;
         при редактировании не должен неявно сбрасываться.
 
+Транзакционная целостность:
+
+    Создание, редактирование и завершение предписания выполняются
+    внутри transaction.atomic().
+
+    Это гарантирует, что при ошибке изменения БД откатываются
+    полностью, включая:
+
+        - Order;
+        - Violation;
+        - OrderViolation;
+        - File.
+
+    Файловая система не участвует в транзакциях PostgreSQL.
+    Поэтому новые физические файлы дополнительно удаляются
+    при ошибке операции.
+
 Важно:
     На данном этапе ещё не реализованы:
 
-        - полная транзакционность операций;
         - защищённая выдача загруженных файлов;
         - проверка фактического MIME-типа;
         - безопасная валидация параметра next.
 
-    Эти изменения выполняются отдельными этапами,
-    чтобы минимизировать риск регрессий.
+    Эти изменения выполняются отдельными этапами.
 """
 
+import logging
 import os
 import uuid
 
@@ -65,6 +81,7 @@ from django.core.exceptions import (
     PermissionDenied,
     ValidationError,
 )
+from django.db import transaction
 from django.shortcuts import (
     get_object_or_404,
     redirect,
@@ -97,6 +114,9 @@ from .models import (
     OrderViolation,
     Violation,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class PrescriptionAccessMixin(LoginRequiredMixin):
@@ -142,6 +162,218 @@ class PrescriptionAccessMixin(LoginRequiredMixin):
         )
 
 
+def validate_uploaded_files(files):
+    """
+    Проверяет набор загружаемых файлов до изменения БД.
+
+    Проверяются:
+
+        - количество файлов;
+        - размер каждого файла;
+        - расширение каждого файла.
+
+    Проверка выполняется до transaction.atomic(), когда это возможно.
+    Благодаря этому ошибка пользовательского файла не приводит
+    даже к временному изменению данных в PostgreSQL.
+
+    Args:
+        files:
+            Список UploadedFile.
+
+    Raises:
+        ValidationError:
+            Если нарушено хотя бы одно правило загрузки.
+    """
+
+    max_files = 5
+    max_size = 10 * 1024 * 1024
+
+    allowed_extensions = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".jpg",
+        ".jpeg",
+        ".png",
+    }
+
+    if len(files) > max_files:
+        raise ValidationError(
+            f"Можно загрузить не более {max_files} файлов."
+        )
+
+    for uploaded_file in files:
+        if uploaded_file.size > max_size:
+            raise ValidationError(
+                (
+                    f'Файл "{uploaded_file.name}" '
+                    "превышает допустимый размер (10 МБ)."
+                )
+            )
+
+        extension = os.path.splitext(
+            uploaded_file.name
+        )[1].lower()
+
+        if extension not in allowed_extensions:
+            allowed_text = ", ".join(
+                sorted(allowed_extensions)
+            )
+
+            raise ValidationError(
+                (
+                    f'Недопустимый формат файла '
+                    f'"{uploaded_file.name}". '
+                    f"Разрешены: {allowed_text}."
+                )
+            )
+
+
+def delete_physical_files(file_paths):
+    """
+    Удаляет новые физические файлы при откате операции.
+
+    PostgreSQL transaction.atomic() умеет откатывать записи таблицы File,
+    но не умеет возвращать состояние файловой системы.
+
+    Поэтому файлы, созданные в рамках неуспешной операции,
+    удаляются отдельно.
+
+    Args:
+        file_paths:
+            Относительные пути внутри MEDIA_ROOT.
+
+    Ошибка удаления отдельного файла не должна скрывать
+    первоначальную ошибку бизнес-операции. Она записывается в лог.
+    """
+
+    for file_path in file_paths:
+        full_path = os.path.join(
+            settings.MEDIA_ROOT,
+            file_path,
+        )
+
+        try:
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+
+        except OSError:
+            logger.exception(
+                "Не удалось удалить файл после отката операции: %s",
+                full_path,
+            )
+
+
+def handle_uploaded_files(order, files, user):
+    """
+    Сохраняет предварительно проверенные файлы.
+
+    Выполняются:
+
+        - генерация случайного имени;
+        - запись файла в MEDIA_ROOT;
+        - создание записи File в БД.
+
+    Функция дополнительно вызывает validate_uploaded_files(),
+    чтобы оставаться безопасной даже при вызове из другого места.
+
+    При ошибке внутри функции все уже записанные в рамках
+    текущего вызова физические файлы удаляются.
+
+    Returns:
+        list[str]:
+            Список относительных путей успешно созданных файлов.
+
+    Raises:
+        ValidationError:
+            При недопустимом файле или ошибке записи на диск.
+
+        Exception:
+            Ошибки БД не подавляются и должны привести
+            к откату внешней transaction.atomic().
+    """
+
+    validate_uploaded_files(files)
+
+    uploaded_paths = []
+
+    try:
+        for uploaded_file in files:
+            extension = os.path.splitext(
+                uploaded_file.name
+            )[1].lower()
+
+            unique_name = (
+                f"{uuid.uuid4().hex}"
+                f"{extension}"
+            )
+
+            date_path = timezone.now().strftime(
+                "prescriptions/%Y/%m/%d"
+            )
+
+            full_directory = os.path.join(
+                settings.MEDIA_ROOT,
+                date_path,
+            )
+
+            os.makedirs(
+                full_directory,
+                exist_ok=True,
+            )
+
+            file_path = os.path.join(
+                date_path,
+                unique_name,
+            )
+
+            full_path = os.path.join(
+                settings.MEDIA_ROOT,
+                file_path,
+            )
+
+            try:
+                with open(
+                    full_path,
+                    "wb+",
+                ) as destination:
+                    for chunk in uploaded_file.chunks():
+                        destination.write(chunk)
+
+            except OSError as error:
+                raise ValidationError(
+                    (
+                        f'Не удалось сохранить файл '
+                        f'"{uploaded_file.name}".'
+                    )
+                ) from error
+
+            # Добавляем путь сразу после физической записи,
+            # чтобы он был удалён, если последующая запись
+            # File.objects.create() завершится ошибкой.
+            uploaded_paths.append(
+                file_path
+            )
+
+            File.objects.create(
+                order=order,
+                uploaded_by_user=user,
+                original_filename=uploaded_file.name,
+                file_path=file_path,
+            )
+
+    except Exception:
+        delete_physical_files(
+            uploaded_paths
+        )
+
+        raise
+
+    return uploaded_paths
+
+
 @login_required
 def complete_order(request, pk):
     """
@@ -160,8 +392,14 @@ def complete_order(request, pk):
         DIRECTOR:
             только предписание собственного учреждения.
 
-    Проверка выполняется на сервере и не зависит от URL,
-    элементов интерфейса или скрытых полей формы.
+    Изменение статуса и создание записи File выполняются
+    одной транзакцией PostgreSQL.
+
+    При ошибке:
+
+        - статус не изменяется;
+        - запись File откатывается;
+        - новый физический файл удаляется.
     """
 
     order = get_object_or_404(
@@ -179,37 +417,68 @@ def complete_order(request, pk):
             "У вас нет прав на завершение этого предписания."
         )
 
-    if request.method == "POST":
-        report_file = request.FILES.get(
-            "report",
+    if request.method != "POST":
+        return render(
+            request,
+            "prescriptions/complete_order.html",
+            {
+                "order": order,
+            },
         )
 
-        if not report_file:
-            messages.error(
-                request,
-                "Необходимо загрузить отчёт о выполнении.",
-            )
+    report_file = request.FILES.get(
+        "report",
+    )
 
-            return render(
-                request,
-                "prescriptions/complete_order.html",
-                {
-                    "order": order,
-                },
-            )
+    if not report_file:
+        messages.error(
+            request,
+            "Необходимо загрузить отчёт о выполнении.",
+        )
 
-        try:
-            handle_uploaded_files(
+        return render(
+            request,
+            "prescriptions/complete_order.html",
+            {
+                "order": order,
+            },
+        )
+
+    files = [
+        report_file,
+    ]
+
+    try:
+        validate_uploaded_files(
+            files
+        )
+
+    except ValidationError as error:
+        messages.error(
+            request,
+            str(error),
+        )
+
+        return render(
+            request,
+            "prescriptions/complete_order.html",
+            {
+                "order": order,
+            },
+        )
+
+    uploaded_paths = []
+
+    try:
+        with transaction.atomic():
+            uploaded_paths = handle_uploaded_files(
                 order,
-                [report_file],
+                files,
                 request.user,
             )
 
             order.status = "COMPLETED"
 
-            # Явно сохраняем только изменяемое поле.
-            # Это снижает риск случайного изменения других
-            # атрибутов объекта при завершении.
             order.save(
                 update_fields=[
                     "status",
@@ -217,193 +486,42 @@ def complete_order(request, pk):
                 ]
             )
 
-            messages.success(
-                request,
-                (
-                    f"Предписание {order.number} выполнено, "
-                    "отчёт загружен."
-                ),
-            )
-
-        except ValidationError as error:
-            messages.error(
-                request,
-                str(error),
-            )
-
-            return render(
-                request,
-                "prescriptions/complete_order.html",
-                {
-                    "order": order,
-                },
-            )
-
-        return redirect(
-            "institution_dashboard",
-            institution_id=order.institution_id,
+    except ValidationError as error:
+        delete_physical_files(
+            uploaded_paths
         )
 
-    return render(
+        messages.error(
+            request,
+            str(error),
+        )
+
+        return render(
+            request,
+            "prescriptions/complete_order.html",
+            {
+                "order": order,
+            },
+        )
+
+    except Exception:
+        delete_physical_files(
+            uploaded_paths
+        )
+        raise
+
+    messages.success(
         request,
-        "prescriptions/complete_order.html",
-        {
-            "order": order,
-        },
+        (
+            f"Предписание {order.number} выполнено, "
+            "отчёт загружен."
+        ),
     )
 
-
-def handle_uploaded_files(order, files, user):
-    """
-    Обрабатывает загруженные пользователем файлы.
-
-    Выполняются следующие проверки:
-
-        - не более пяти файлов за одну операцию;
-        - размер каждого файла не более 10 МБ;
-        - расширение входит в разрешённый список.
-
-    Файл получает случайное имя для хранения на диске.
-
-    В базе данных сохраняются:
-
-        - предписание;
-        - пользователь-загрузчик;
-        - исходное имя файла;
-        - внутренний путь;
-        - дата загрузки.
-
-    Важно:
-        На текущем этапе проверяется расширение файла.
-
-        Дополнительная проверка фактического MIME-типа
-        и защищённая выдача файлов будут реализованы
-        отдельным security-этапом.
-    """
-
-    max_files = 5
-
-    max_size = (
-        10
-        * 1024
-        * 1024
+    return redirect(
+        "institution_dashboard",
+        institution_id=order.institution_id,
     )
-
-    allowed_extensions = [
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xls",
-        ".xlsx",
-        ".jpg",
-        ".jpeg",
-        ".png",
-    ]
-
-    if len(files) > max_files:
-        raise ValidationError(
-            (
-                "Можно загрузить не более "
-                f"{max_files} файлов."
-            )
-        )
-
-    uploaded_paths = []
-
-    for uploaded_file in files:
-        # ----------------------------------------------------
-        # Размер
-        # ----------------------------------------------------
-
-        if uploaded_file.size > max_size:
-            raise ValidationError(
-                (
-                    f'Файл "{uploaded_file.name}" '
-                    "превышает допустимый размер (10 МБ)."
-                )
-            )
-
-        # ----------------------------------------------------
-        # Расширение
-        # ----------------------------------------------------
-
-        extension = os.path.splitext(
-            uploaded_file.name
-        )[1].lower()
-
-        if extension not in allowed_extensions:
-            raise ValidationError(
-                (
-                    f'Недопустимый формат файла '
-                    f'"{uploaded_file.name}". '
-                    "Разрешены: "
-                    + ", ".join(allowed_extensions)
-                    + "."
-                )
-            )
-
-        # ----------------------------------------------------
-        # Внутреннее имя
-        # ----------------------------------------------------
-
-        unique_name = (
-            f"{uuid.uuid4().hex}"
-            f"{extension}"
-        )
-
-        date_path = timezone.now().strftime(
-            "prescriptions/%Y/%m/%d"
-        )
-
-        full_directory = os.path.join(
-            settings.MEDIA_ROOT,
-            date_path,
-        )
-
-        os.makedirs(
-            full_directory,
-            exist_ok=True,
-        )
-
-        file_path = os.path.join(
-            date_path,
-            unique_name,
-        )
-
-        full_path = os.path.join(
-            settings.MEDIA_ROOT,
-            file_path,
-        )
-
-        # ----------------------------------------------------
-        # Физическое сохранение
-        # ----------------------------------------------------
-
-        with open(
-            full_path,
-            "wb+",
-        ) as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(
-                    chunk
-                )
-
-        # ----------------------------------------------------
-        # Запись метаданных
-        # ----------------------------------------------------
-
-        File.objects.create(
-            order=order,
-            uploaded_by_user=user,
-            original_filename=uploaded_file.name,
-            file_path=file_path,
-        )
-
-        uploaded_paths.append(
-            file_path
-        )
-
-    return uploaded_paths
 
 
 class OrderListView(
@@ -436,8 +554,7 @@ class OrderListView(
         """
         Формирует доступный пользователю QuerySet.
 
-        Важное правило:
-            DIRECTOR никогда не получает общий QuerySet.
+        DIRECTOR никогда не получает общий QuerySet.
 
         Даже если пользователь вручную передаст параметр
         institution в URL, директор остаётся ограничен
@@ -454,10 +571,6 @@ class OrderListView(
         )
 
         user = self.request.user
-
-        # ----------------------------------------------------
-        # Object-level scope
-        # ----------------------------------------------------
 
         if can_access_all_institutions(user):
             institution_id = (
@@ -488,12 +601,7 @@ class OrderListView(
             )
 
         else:
-            # Defense in depth.
             return queryset.none()
-
-        # ----------------------------------------------------
-        # Статус
-        # ----------------------------------------------------
 
         status_filter = (
             self.request.GET.get(
@@ -506,10 +614,6 @@ class OrderListView(
                 status=status_filter,
             )
 
-        # ----------------------------------------------------
-        # Поиск по номеру
-        # ----------------------------------------------------
-
         search_query = (
             self.request.GET.get(
                 "q"
@@ -520,10 +624,6 @@ class OrderListView(
             queryset = queryset.filter(
                 number__icontains=search_query,
             )
-
-        # ----------------------------------------------------
-        # Сортировка
-        # ----------------------------------------------------
 
         order_by = self.request.GET.get(
             "order_by",
@@ -612,7 +712,7 @@ class OrderDetailView(
 
     DIRECTOR может получить объект только собственного учреждения.
 
-    Попытка открыть ID чужого предписания не должна раскрывать
+    Попытка открыть ID чужого предписания не раскрывает
     наличие такого объекта.
     """
 
@@ -697,8 +797,8 @@ class OrderCreateView(
           собственного учреждения;
         - COMMITTEE и Django-superuser могут выбрать учреждение.
 
-    Клиентские поля не являются источником доверия
-    для created_by_user и institution директора.
+    Создание Order, OrderViolation и File выполняется
+    одной транзакцией БД.
     """
 
     model = Order
@@ -860,10 +960,16 @@ class OrderCreateView(
 
     def form_valid(self, form):
         """
-        Сохраняет новое предписание и связанные нарушения.
+        Сохраняет новое предписание и связанные данные атомарно.
 
-        created_by_user всегда определяется текущей
-        авторизованной учётной записью на сервере.
+        Если любой шаг завершается ошибкой, PostgreSQL откатывает:
+
+            - Order;
+            - новые Violation;
+            - OrderViolation;
+            - записи File.
+
+        Физические файлы также удаляются.
         """
 
         context = (
@@ -883,78 +989,18 @@ class OrderCreateView(
                 )
             )
 
-        order = form.save(
-            commit=False
+        files = (
+            self.request.FILES
+            .getlist(
+                "attachments"
+            )
         )
 
-        user = self.request.user
-
-        if has_own_institution(user):
-            order.institution_id = (
-                user.institution_id
-            )
-
-        elif not can_access_all_institutions(
-            user
-        ):
-            raise PermissionDenied(
-                "Недостаточно прав для создания предписания."
-            )
-
-        # Исторический автор определяется только сервером.
-        order.created_by_user = user
-
-        # Новое предписание всегда создаётся со статусом NEW.
-        order.status = "NEW"
-
-        order.save()
-
-        # ----------------------------------------------------
-        # Нарушения
-        # ----------------------------------------------------
-
-        for violation_form in (
-            violation_formset
-        ):
-            violation_text = (
-                violation_form
-                .cleaned_data
-                .get(
-                    "text"
-                )
-            )
-
-            if not violation_text:
-                continue
-
-            violation, _created = (
-                Violation.objects
-                .get_or_create(
-                    description=violation_text,
-                )
-            )
-
-            OrderViolation.objects.create(
-                order=order,
-                violation=violation,
-            )
-
-        # ----------------------------------------------------
-        # Вложения
-        # ----------------------------------------------------
-
+        # Ошибки пользовательских файлов обнаруживаем
+        # до любых изменений БД.
         try:
-            files = (
-                self.request.FILES
-                .getlist(
-                    "attachments"
-                )
-            )
-
-            handle_uploaded_files(
-                order,
-                files,
-                user,
+            validate_uploaded_files(
+                files
             )
 
         except ValidationError as error:
@@ -963,15 +1009,104 @@ class OrderCreateView(
                 str(error),
             )
 
-            # Временное существующее поведение.
-            # Будет заменено transaction.atomic() в TX-01.
-            order.delete()
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form
+                )
+            )
+
+        user = self.request.user
+
+        uploaded_paths = []
+
+        try:
+            with transaction.atomic():
+                order = form.save(
+                    commit=False
+                )
+
+                if has_own_institution(user):
+                    order.institution_id = (
+                        user.institution_id
+                    )
+
+                elif not can_access_all_institutions(
+                    user
+                ):
+                    raise PermissionDenied(
+                        (
+                            "Недостаточно прав для создания "
+                            "предписания."
+                        )
+                    )
+
+                order.created_by_user = user
+                order.status = "NEW"
+
+                order.save()
+
+                # --------------------------------------------
+                # Нарушения
+                # --------------------------------------------
+
+                for violation_form in (
+                    violation_formset
+                ):
+                    violation_text = (
+                        violation_form
+                        .cleaned_data
+                        .get(
+                            "text"
+                        )
+                    )
+
+                    if not violation_text:
+                        continue
+
+                    violation, _created = (
+                        Violation.objects
+                        .get_or_create(
+                            description=violation_text,
+                        )
+                    )
+
+                    OrderViolation.objects.create(
+                        order=order,
+                        violation=violation,
+                    )
+
+                # --------------------------------------------
+                # Вложения
+                # --------------------------------------------
+
+                if files:
+                    uploaded_paths = handle_uploaded_files(
+                        order,
+                        files,
+                        user,
+                    )
+
+        except ValidationError as error:
+            delete_physical_files(
+                uploaded_paths
+            )
+
+            messages.error(
+                self.request,
+                str(error),
+            )
 
             return self.render_to_response(
                 self.get_context_data(
                     form=form
                 )
             )
+
+        except Exception:
+            delete_physical_files(
+                uploaded_paths
+            )
+            raise
 
         messages.success(
             self.request,
@@ -987,7 +1122,7 @@ class OrderCreateView(
             )
         )
 
-        # Валидация next будет реализована в WEB-01.
+        # WEB-01 будет исправлен отдельно.
         if next_url:
             return redirect(
                 next_url
@@ -1008,12 +1143,10 @@ class OrderUpdateView(
     DIRECTOR получает доступ только к объектам
     собственного учреждения.
 
-    Исторический автор предписания является неизменяемым:
+    created_by_user является неизменяемым историческим полем.
 
-        created_by_user
-
-    При сохранении всегда восстанавливается исходное значение,
-    полученное из существующей записи БД.
+    Изменение Order, OrderViolation и создание новых File
+    выполняются одной транзакцией PostgreSQL.
     """
 
     model = Order
@@ -1071,9 +1204,6 @@ class OrderUpdateView(
     def get_form_kwargs(self):
         """
         Передаёт текущего пользователя в OrderForm.
-
-        OrderForm использует его для серверной защиты
-        учреждения, статуса и автора.
         """
 
         kwargs = super().get_form_kwargs()
@@ -1161,18 +1291,18 @@ class OrderUpdateView(
 
     def form_valid(self, form):
         """
-        Сохраняет изменения существующего предписания.
+        Сохраняет изменения существующего предписания атомарно.
 
-        Защищённые исторические значения:
+        При ошибке откатываются:
 
-            created_by_user:
-                всегда сохраняется исходным;
+            - изменения Order;
+            - удаление старых OrderViolation;
+            - создание новых OrderViolation;
+            - новые записи File.
 
-            institution:
-                директор всегда остаётся в собственном учреждении.
+        Новые физические файлы удаляются вручную.
 
-        Даже если клиент вручную изменит POST-данные,
-        сервер повторно устанавливает доверенные значения.
+        Исходный created_by_user всегда сохраняется.
         """
 
         context = (
@@ -1192,116 +1322,17 @@ class OrderUpdateView(
                 )
             )
 
-        # ----------------------------------------------------
-        # Сохраняем доверенные исходные значения
-        # ----------------------------------------------------
-
-        original_created_by_user_id = (
-            self.object.created_by_user_id
+        files = (
+            self.request.FILES
+            .getlist(
+                "attachments"
+            )
         )
-
-        original_institution_id = (
-            self.object.institution_id
-        )
-
-        order = form.save(
-            commit=False
-        )
-
-        user = self.request.user
-
-        # ----------------------------------------------------
-        # Автор неизменяем
-        # ----------------------------------------------------
-
-        order.created_by_user_id = (
-            original_created_by_user_id
-        )
-
-        # ----------------------------------------------------
-        # Учреждение
-        # ----------------------------------------------------
-
-        if has_own_institution(user):
-            # Для директора учреждение всегда определяется
-            # серверной привязкой пользователя.
-            order.institution_id = (
-                user.institution_id
-            )
-
-            # Дополнительная защита целостности:
-            # существующий объект директора уже должен
-            # принадлежать этому же учреждению.
-            if (
-                original_institution_id
-                != user.institution_id
-            ):
-                raise PermissionDenied(
-                    (
-                        "Нарушена принадлежность предписания "
-                        "учреждению пользователя."
-                    )
-                )
-
-        elif not can_access_all_institutions(
-            user
-        ):
-            raise PermissionDenied(
-                "Недостаточно прав для редактирования предписания."
-            )
-
-        order.save()
-
-        # ----------------------------------------------------
-        # Нарушения
-        # ----------------------------------------------------
-
-        order.order_violations.all().delete()
-
-        for violation_form in (
-            violation_formset
-        ):
-            violation_text = (
-                violation_form
-                .cleaned_data
-                .get(
-                    "text"
-                )
-            )
-
-            if not violation_text:
-                continue
-
-            violation, _created = (
-                Violation.objects
-                .get_or_create(
-                    description=violation_text,
-                )
-            )
-
-            OrderViolation.objects.create(
-                order=order,
-                violation=violation,
-            )
-
-        # ----------------------------------------------------
-        # Новые вложения
-        # ----------------------------------------------------
 
         try:
-            files = (
-                self.request.FILES
-                .getlist(
-                    "attachments"
-                )
+            validate_uploaded_files(
+                files
             )
-
-            if files:
-                handle_uploaded_files(
-                    order,
-                    files,
-                    user,
-                )
 
         except ValidationError as error:
             messages.error(
@@ -1314,6 +1345,129 @@ class OrderUpdateView(
                     form=form
                 )
             )
+
+        original_created_by_user_id = (
+            self.object.created_by_user_id
+        )
+
+        original_institution_id = (
+            self.object.institution_id
+        )
+
+        user = self.request.user
+
+        uploaded_paths = []
+
+        try:
+            with transaction.atomic():
+                order = form.save(
+                    commit=False
+                )
+
+                # --------------------------------------------
+                # Автор неизменяем
+                # --------------------------------------------
+
+                order.created_by_user_id = (
+                    original_created_by_user_id
+                )
+
+                # --------------------------------------------
+                # Учреждение
+                # --------------------------------------------
+
+                if has_own_institution(user):
+                    order.institution_id = (
+                        user.institution_id
+                    )
+
+                    if (
+                        original_institution_id
+                        != user.institution_id
+                    ):
+                        raise PermissionDenied(
+                            (
+                                "Нарушена принадлежность "
+                                "предписания учреждению пользователя."
+                            )
+                        )
+
+                elif not can_access_all_institutions(
+                    user
+                ):
+                    raise PermissionDenied(
+                        (
+                            "Недостаточно прав для редактирования "
+                            "предписания."
+                        )
+                    )
+
+                order.save()
+
+                # --------------------------------------------
+                # Нарушения
+                # --------------------------------------------
+
+                order.order_violations.all().delete()
+
+                for violation_form in (
+                    violation_formset
+                ):
+                    violation_text = (
+                        violation_form
+                        .cleaned_data
+                        .get(
+                            "text"
+                        )
+                    )
+
+                    if not violation_text:
+                        continue
+
+                    violation, _created = (
+                        Violation.objects
+                        .get_or_create(
+                            description=violation_text,
+                        )
+                    )
+
+                    OrderViolation.objects.create(
+                        order=order,
+                        violation=violation,
+                    )
+
+                # --------------------------------------------
+                # Новые вложения
+                # --------------------------------------------
+
+                if files:
+                    uploaded_paths = handle_uploaded_files(
+                        order,
+                        files,
+                        user,
+                    )
+
+        except ValidationError as error:
+            delete_physical_files(
+                uploaded_paths
+            )
+
+            messages.error(
+                self.request,
+                str(error),
+            )
+
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form
+                )
+            )
+
+        except Exception:
+            delete_physical_files(
+                uploaded_paths
+            )
+            raise
 
         messages.success(
             self.request,
