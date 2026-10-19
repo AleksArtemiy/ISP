@@ -21,7 +21,7 @@
     </ul>
 </div>
 
-<form id="previewForm" method="post" action="{% url 'prescriptions:order_create' %}{% if next %}?next={{ next }}{% endif %}">
+<form id="previewForm" method="post" action="{% url 'prescriptions:order_create' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
     {% csrf_token %}
     <!-- Копируем все поля из основной формы -->
     {% for field in form %}

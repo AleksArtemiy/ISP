@@ -551,7 +551,7 @@
                                             {% for file in existing_files %}
                                                 <li class="mb-1">
                                                     <i class="bi bi-file-earmark me-1"></i>
-                                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                                    <a href="{% url 'prescriptions:file_download' file.pk %}">{{ file.original_filename }}</a>
                                                     <small class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</small>
                                                 </li>
                                             {% endfor %}
@@ -678,7 +678,7 @@ const fileList = document.getElementById('file-list');
 const clearBtn = document.getElementById('clear-files');
 
 function updateFileList() {
-    fileList.innerHTML = '';
+    fileList.replaceChildren();
     if (selectedFiles.length === 0) {
         clearBtn.style.display = 'none';
         return;
@@ -688,12 +688,18 @@ function updateFileList() {
         const item = document.createElement('div');
         item.className = 'file-item';
         const icon = getFileIcon(file.name);
-        item.innerHTML = `
-            <i class="bi ${icon} me-1"></i>
-            <span>${file.name}</span>
-            <small class="text-muted ms-1">(${(file.size / 1024).toFixed(1)} КБ)</small>
-            <span class="remove-file" data-index="${index}">&times;</span>
-        `;
+        const iconNode = document.createElement('i');
+        iconNode.className = `bi ${icon} me-1`;
+        const nameNode = document.createElement('span');
+        nameNode.textContent = file.name;
+        const sizeNode = document.createElement('small');
+        sizeNode.className = 'text-muted ms-1';
+        sizeNode.textContent = `(${(file.size / 1024).toFixed(1)} КБ)`;
+        const removeNode = document.createElement('span');
+        removeNode.className = 'remove-file';
+        removeNode.dataset.index = String(index);
+        removeNode.textContent = '×';
+        item.append(iconNode, nameNode, sizeNode, removeNode);
         fileList.appendChild(item);
     });
 }
@@ -780,38 +786,11 @@ clearBtn.addEventListener('click', () => {
 
 // Перехват отправки формы для отправки файлов из массива
 const form = document.getElementById('orderForm');
-form.addEventListener('submit', function(e) {
-    // Если есть файлы в массиве, отправляем через Fetch
-    if (selectedFiles.length > 0) {
-        e.preventDefault();
-        const formData = new FormData(form);
-        // Удаляем поле attachments (оно может быть пустым или содержать старые файлы)
-        formData.delete('attachments');
-        // Добавляем каждый файл из массива
-        selectedFiles.forEach(file => {
-            formData.append('attachments', file);
-        });
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-            },
-        })
-        .then(response => {
-            if (response.ok) {
-                // Перенаправление на список предписаний
-                window.location.href = '{% url "prescriptions:order_list" %}';
-            } else {
-                alert('Ошибка при сохранении. Проверьте данные.');
-            }
-        })
-        .catch(() => {
-            alert('Ошибка отправки.');
-        });
-    }
-    // Если файлов нет, форма отправится стандартно
+form.addEventListener('submit', function() {
+    // Native submission preserves server validation and the validated redirect.
+    const transfer = new DataTransfer();
+    selectedFiles.forEach(file => transfer.items.add(file));
+    fileInput.files = transfer.files;
 });
 </script>
 

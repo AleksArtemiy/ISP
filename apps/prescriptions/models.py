@@ -1,4 +1,4 @@
-import os
+from django.urls import reverse
 
 from django.db import models
 from django.conf import settings
@@ -201,7 +201,7 @@ class File(models.Model):
 
     @property
     def url(self):
-        return os.path.join(settings.MEDIA_URL, self.file_path)
+        return reverse('prescriptions:file_download', kwargs={'pk': self.pk})
     
     class Meta:
         db_table = 'files'
