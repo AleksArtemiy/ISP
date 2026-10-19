@@ -112,6 +112,7 @@ from .models import (
 from .uploads import validate_uploaded_files
 from .private_files import private_path, download_name
 from .navigation import safe_next
+from .filters import OrderFilters
 
 
 logger = logging.getLogger(__name__)
@@ -515,79 +516,14 @@ class OrderListView(
 
         user = self.request.user
 
-        if can_access_all_institutions(user):
-            institution_id = (
-                self.request.GET.get(
-                    "institution"
-                )
-            )
-
-            if institution_id:
-                try:
-                    institution_id = int(
-                        institution_id
-                    )
-
-                except (
-                    TypeError,
-                    ValueError,
-                ):
-                    return queryset.none()
-
-                queryset = queryset.filter(
-                    institution_id=institution_id,
-                )
-
-        elif has_own_institution(user):
+        if has_own_institution(user) and not can_access_all_institutions(user):
             queryset = queryset.filter(
                 institution_id=user.institution_id,
             )
-
-        else:
+        elif not can_access_all_institutions(user):
             return queryset.none()
-
-        status_filter = (
-            self.request.GET.get(
-                "status"
-            )
-        )
-
-        if status_filter:
-            queryset = queryset.filter(
-                status=status_filter,
-            )
-
-        search_query = (
-            self.request.GET.get(
-                "q"
-            )
-        )
-
-        if search_query:
-            queryset = queryset.filter(
-                number__icontains=search_query,
-            )
-
-        order_by = self.request.GET.get(
-            "order_by",
-            "-created_at",
-        )
-
-        allowed_ordering = {
-            "created_at",
-            "-created_at",
-            "deadline_date",
-            "-deadline_date",
-            "number",
-            "-number",
-        }
-
-        if order_by not in allowed_ordering:
-            order_by = "-created_at"
-
-        return queryset.order_by(
-            order_by
-        )
+        self.filter_form = OrderFilters(self.request.GET, user=user)
+        return self.filter_form.apply(queryset)
 
     def get_context_data(
         self,
@@ -607,6 +543,7 @@ class OrderListView(
                 "",
             )
         )
+        context['filter_form'] = self.filter_form
 
         context["current_institution"] = (
             self.request.GET.get(
