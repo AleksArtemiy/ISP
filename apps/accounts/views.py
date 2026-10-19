@@ -23,6 +23,9 @@ from django.shortcuts import (
     render,
 )
 from django.urls import reverse
+from django.views.decorators.http import require_POST
+from .permissions import can_access_admin_panel
+from .throttling import reserve_login_attempt, release_login_attempt
 
 from .permissions import (
     is_committee,
@@ -62,7 +65,7 @@ def get_redirect_url(user):
     if not getattr(user, "is_authenticated", False):
         return None
 
-    if is_django_admin(user):
+    if can_access_admin_panel(user):
         return reverse(
             "admin_panel:admin_panel",
         )
@@ -174,11 +177,21 @@ def login_view(request):
                 "accounts/login.html",
             )
 
+        attempt = reserve_login_attempt(request, email)
+        if attempt is None:
+            messages.error(request, "Слишком много попыток входа. Повторите через 15 минут.")
+            response = render(request, "accounts/login.html", status=429)
+            response["Retry-After"] = "900"
+            return response
+
         user = authenticate(
             request,
             username=email,
             password=password,
         )
+
+        if user is not None:
+            release_login_attempt(attempt)
 
         # ----------------------------------------------------
         # Неверные учётные данные
@@ -248,6 +261,7 @@ def login_view(request):
 
 
 @login_required
+@require_POST
 def logout_view(request):
     """
     Завершает пользовательскую сессию и перенаправляет

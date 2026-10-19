@@ -10,7 +10,7 @@ ROLE_CODE_MAPPING = {
 
 def populate_role_codes(apps, schema_editor):
     """
-    Заполняет стабильные программные коды существующих ролей.
+    Заполняет коды существующих ролей и создаёт недостающие системные роли.
 
     Ожидаемые роли в текущей базе данных:
 
@@ -22,6 +22,9 @@ def populate_role_codes(apps, schema_editor):
     полученную через apps.get_model(), а не через импорт
     текущей модели приложения.
 
+    Цепочка исправлена до ввода в эксплуатацию: следующая миграция не могла
+    бы устранить ошибку установки, возникающую до её запуска. Уже применённые
+    миграции повторно не выполняются. Идентификаторы ролей сохраняются.
     Перед обновлением выполняется проверка существующих ролей.
     Если обнаружена неизвестная роль, миграция прерывается,
     чтобы неизвестному значению не был назначен ошибочный код.
@@ -29,44 +32,23 @@ def populate_role_codes(apps, schema_editor):
 
     Role = apps.get_model("accounts", "Role")
 
-    roles = list(
-        Role.objects.all().values(
-            "id",
-            "name",
-            "code",
-        )
-    )
+    roles = Role.objects.using(schema_editor.connection.alias)
+    by_code = {}
+    for role in roles.all():
+        mapped = ROLE_CODE_MAPPING.get((role.name or "").strip().lower())
+        code = role.code or mapped
+        if code not in ROLE_CODE_MAPPING.values() or (mapped and mapped != code):
+            raise RuntimeError(f"Неоднозначная системная роль id={role.pk}; требуется проверка данных.")
+        if code in by_code:
+            raise RuntimeError(f"Дублирующиеся роли с кодом {code}; требуется проверка данных.")
+        by_code[code] = role
 
-    unknown_roles = []
-
-    for role in roles:
-        normalized_name = (role["name"] or "").strip().lower()
-
-        if normalized_name not in ROLE_CODE_MAPPING:
-            unknown_roles.append(
-                f"id={role['id']}, name={role['name']!r}"
-            )
-
-    if unknown_roles:
-        raise RuntimeError(
-            "Обнаружены неизвестные роли. "
-            "Миграция Role.code остановлена. "
-            "Неизвестные записи: "
-            + "; ".join(unknown_roles)
-        )
-
-    for role_name, role_code in ROLE_CODE_MAPPING.items():
-        updated = Role.objects.filter(
-            name__iexact=role_name,
-        ).update(
-            code=role_code,
-        )
-
-        if updated != 1:
-            raise RuntimeError(
-                "Ожидалась ровно одна роль "
-                f"{role_name!r}, но обновлено записей: {updated}."
-            )
+    # Validate every existing row before writing. Preserve all IDs and user FKs.
+    for name, code in ROLE_CODE_MAPPING.items():
+        if code in by_code:
+            roles.filter(pk=by_code[code].pk).update(code=code)
+        else:
+            roles.create(name=name, code=code)
 
 
 def clear_role_codes(apps, schema_editor):
@@ -79,7 +61,7 @@ def clear_role_codes(apps, schema_editor):
 
     Role = apps.get_model("accounts", "Role")
 
-    Role.objects.filter(
+    Role.objects.using(schema_editor.connection.alias).filter(
         code__in=[
             "ADMIN",
             "COMMITTEE",

@@ -518,6 +518,12 @@ class OrderForm(forms.ModelForm):
                 self.instance.status
             )
 
+        issue_date = cleaned_data.get('issue_date')
+        deadline = cleaned_data.get('deadline_date')
+        if issue_date and deadline and deadline < issue_date:
+            self.add_error('deadline_date', 'Срок исполнения не может быть раньше даты выдачи.')
+        if not self.is_create and self.instance.status != 'COMPLETED' and cleaned_data.get('status') == 'COMPLETED':
+            self.add_error('status', 'Для завершения загрузите отчёт через действие «Завершить».')
         return cleaned_data
 
 

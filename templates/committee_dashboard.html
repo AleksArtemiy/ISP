@@ -48,7 +48,7 @@
                 <div class="profile-dropdown" id="dropdown">
                     <button>Профиль</button>
                     <button>Настройки</button>
-                    <button id="logoutBtn">Выйти</button>
+                    <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button type="submit">Выйти</button></form>
                 </div>
             </div>
         </div>
@@ -266,9 +266,6 @@
 <script src="{% static 'js/prescriptions.js' %}"></script>
 <script>
     // Обработка выхода
-    document.getElementById('logoutBtn')?.addEventListener('click', function() {
-        window.location.href = "{% url 'logout' %}";
-    });
     // Переход по карточке учреждения (для комитета – на страницу учреждения)
     document.querySelectorAll('.school-card').forEach(card => {
         card.addEventListener('click', (e) => {

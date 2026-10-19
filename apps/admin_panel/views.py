@@ -15,6 +15,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+from django.db.models.deletion import ProtectedError
+from django.core.exceptions import PermissionDenied
+from functools import wraps
+from apps.accounts.permissions import can_access_admin_panel, is_django_admin
 
 from apps.institutions.models import Institution, InstitutionType
 from apps.prescriptions.models import SupervisoryAuthority
@@ -25,17 +29,39 @@ User = get_user_model()
 
 def admin_required(view_func):
     """Декоратор: доступ только для суперпользователей."""
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if not request.user.is_superuser:
-            messages.error(request, "Доступ запрещён. Требуются права администратора.")
-            return redirect('committee_dashboard')
+        if not can_access_admin_panel(request.user):
+            raise PermissionDenied('Доступ запрещён. Требуются права администратора.')
         return view_func(request, *args, **kwargs)
     return wrapper
 
 
 def is_ajax(request):
     """Проверка, является ли запрос AJAX."""
-    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' or request.GET.get('modal') == '1'
+
+
+def managed_users(request):
+    users = User.objects.all()
+    if not is_django_admin(request.user):
+        users = users.filter(is_staff=False, is_superuser=False)
+    return users
+
+
+def delete_reference(request, obj, label):
+    try:
+        obj.delete()
+    except ProtectedError:
+        error = 'Удаление запрещено: запись связана с историческими данными. Сначала проверьте связи.'
+        if is_ajax(request):
+            return JsonResponse({'success': False, 'error': error}, status=409)
+        messages.error(request, error)
+        return redirect('admin_panel:admin_panel')
+    messages.success(request, f'{label} удалено')
+    if is_ajax(request):
+        return JsonResponse({'success': True})
+    return redirect('admin_panel:admin_panel')
 
 
 # ------------------- ГЛАВНАЯ СТРАНИЦА -------------------
@@ -46,7 +72,7 @@ def admin_panel(request):
     """Главная страница панели администратора."""
     context = {
         'institutions': Institution.objects.all().select_related('institution_type'),
-        'users': User.objects.all().select_related('institution', 'role'),
+        'users': managed_users(request).select_related('institution', 'role'),
         'authorities': SupervisoryAuthority.objects.all(),
         'institution_types': InstitutionType.objects.all(),
     }
@@ -104,11 +130,7 @@ def institution_delete(request, pk):
     """Удаление учреждения с подтверждением."""
     inst = get_object_or_404(Institution, pk=pk)
     if request.method == 'POST':
-        inst.delete()
-        messages.success(request, 'Учреждение удалено')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, inst, 'Учреждение')
     # GET-запрос – показываем страницу подтверждения
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': inst, 'type': 'учреждение'})
@@ -142,7 +164,7 @@ def user_create(request):
 @admin_required
 def user_edit(request, pk):
     """Редактирование пользователя."""
-    user = get_object_or_404(User, pk=pk)
+    user = get_object_or_404(managed_users(request), pk=pk)
     if request.method == 'POST':
         form = UserForm(request.POST, instance=user)
         if form.is_valid():
@@ -164,10 +186,11 @@ def user_edit(request, pk):
 @admin_required
 def user_delete(request, pk):
     """Удаление пользователя."""
-    user = get_object_or_404(User, pk=pk)
+    user = get_object_or_404(managed_users(request), pk=pk)
     if request.method == 'POST':
-        user.delete()
-        messages.success(request, 'Пользователь удалён')
+        user.is_active = False
+        user.save(update_fields=['is_active', 'updated_at'])
+        messages.success(request, 'Пользователь деактивирован. История сохранена.')
         if is_ajax(request):
             return JsonResponse({'success': True})
         return redirect('admin_panel:admin_panel')
@@ -227,11 +250,7 @@ def authority_delete(request, pk):
     """Удаление надзорного органа."""
     auth = get_object_or_404(SupervisoryAuthority, pk=pk)
     if request.method == 'POST':
-        auth.delete()
-        messages.success(request, 'Надзорный орган удалён')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, auth, 'Надзорный орган')
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
@@ -288,11 +307,7 @@ def institution_type_delete(request, pk):
     """Удаление типа учреждения."""
     inst_type = get_object_or_404(InstitutionType, pk=pk)
     if request.method == 'POST':
-        inst_type.delete()
-        messages.success(request, 'Тип учреждения удалён')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, inst_type, 'Тип учреждения')
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})

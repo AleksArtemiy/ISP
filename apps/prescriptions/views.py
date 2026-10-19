@@ -59,14 +59,8 @@ apps.accounts.permissions и стабильные коды Role.code.
     Поэтому новые физические файлы дополнительно удаляются
     при ошибке операции.
 
-Важно:
-    На данном этапе ещё не реализованы:
-
-        - защищённая выдача загруженных файлов;
-        - проверка фактического MIME-типа;
-        - безопасная валидация параметра next.
-
-    Эти изменения выполняются отдельными этапами.
+Вложения выдаются только после проверки объекта; содержимое загрузок
+проверяется до записи. Переходы next нормализуются на сервере.
 """
 
 import logging
@@ -82,6 +76,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.db import transaction
+from django.http import FileResponse, Http404
 from django.shortcuts import (
     get_object_or_404,
     redirect,
@@ -95,6 +90,7 @@ from django.views.generic import (
     ListView,
     UpdateView,
 )
+from django.views.decorators.http import require_safe
 
 from apps.accounts.permissions import (
     can_access_all_institutions,
@@ -114,9 +110,22 @@ from .models import (
     OrderViolation,
     Violation,
 )
+from .uploads import validate_uploaded_files
+from .private_files import private_path, download_name
+from .navigation import safe_next
+from .filters import OrderFilters
 
 
 logger = logging.getLogger(__name__)
+
+
+def visible_violation_descriptions(user):
+    queryset = Violation.objects.all()
+    if not can_access_all_institutions(user):
+        if not has_own_institution(user):
+            return queryset.none().values_list('description', flat=True)
+        queryset = queryset.filter(orderviolation__order__institution_id=user.institution_id)
+    return queryset.values_list('description', flat=True).distinct()
 
 
 class PrescriptionAccessMixin(LoginRequiredMixin):
@@ -162,75 +171,6 @@ class PrescriptionAccessMixin(LoginRequiredMixin):
         )
 
 
-def validate_uploaded_files(files):
-    """
-    Проверяет набор загружаемых файлов до изменения БД.
-
-    Проверяются:
-
-        - количество файлов;
-        - размер каждого файла;
-        - расширение каждого файла.
-
-    Проверка выполняется до transaction.atomic(), когда это возможно.
-    Благодаря этому ошибка пользовательского файла не приводит
-    даже к временному изменению данных в PostgreSQL.
-
-    Args:
-        files:
-            Список UploadedFile.
-
-    Raises:
-        ValidationError:
-            Если нарушено хотя бы одно правило загрузки.
-    """
-
-    max_files = 5
-    max_size = 10 * 1024 * 1024
-
-    allowed_extensions = {
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xls",
-        ".xlsx",
-        ".jpg",
-        ".jpeg",
-        ".png",
-    }
-
-    if len(files) > max_files:
-        raise ValidationError(
-            f"Можно загрузить не более {max_files} файлов."
-        )
-
-    for uploaded_file in files:
-        if uploaded_file.size > max_size:
-            raise ValidationError(
-                (
-                    f'Файл "{uploaded_file.name}" '
-                    "превышает допустимый размер (10 МБ)."
-                )
-            )
-
-        extension = os.path.splitext(
-            uploaded_file.name
-        )[1].lower()
-
-        if extension not in allowed_extensions:
-            allowed_text = ", ".join(
-                sorted(allowed_extensions)
-            )
-
-            raise ValidationError(
-                (
-                    f'Недопустимый формат файла '
-                    f'"{uploaded_file.name}". '
-                    f"Разрешены: {allowed_text}."
-                )
-            )
-
-
 def delete_physical_files(file_paths):
     """
     Удаляет новые физические файлы при откате операции.
@@ -250,10 +190,7 @@ def delete_physical_files(file_paths):
     """
 
     for file_path in file_paths:
-        full_path = os.path.join(
-            settings.MEDIA_ROOT,
-            file_path,
-        )
+        full_path = private_path(file_path)
 
         try:
             if os.path.isfile(full_path):
@@ -334,6 +271,7 @@ def handle_uploaded_files(order, files, user):
                 file_path,
             )
 
+            uploaded_paths.append(file_path)
             try:
                 with open(
                     full_path,
@@ -353,9 +291,6 @@ def handle_uploaded_files(order, files, user):
             # Добавляем путь сразу после физической записи,
             # чтобы он был удалён, если последующая запись
             # File.objects.create() завершится ошибкой.
-            uploaded_paths.append(
-                file_path
-            )
 
             File.objects.create(
                 order=order,
@@ -372,6 +307,26 @@ def handle_uploaded_files(order, files, user):
         raise
 
     return uploaded_paths
+
+
+@login_required
+@require_safe
+def download_file(request, pk):
+    files = File.objects.select_related('order')
+    if not can_access_all_institutions(request.user):
+        if not has_own_institution(request.user):
+            raise PermissionDenied('Недостаточно прав для скачивания.')
+        files = files.filter(order__institution_id=request.user.institution_id)
+    file = get_object_or_404(files, pk=pk)
+    try:
+        stream = private_path(file.file_path).open('rb')
+    except (OSError, ValueError):
+        raise Http404('Файл не найден.')
+    response = FileResponse(stream, as_attachment=True,
+        filename=download_name(file.original_filename), content_type='application/octet-stream')
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @login_required
@@ -426,9 +381,11 @@ def complete_order(request, pk):
             },
         )
 
-    report_file = request.FILES.get(
-        "report",
-    )
+    reports = request.FILES.getlist('report')
+    if len(reports) > 1:
+        messages.error(request, 'Для завершения загрузите ровно один итоговый отчёт.')
+        return render(request, 'prescriptions/complete_order.html', {'order': order})
+    report_file = reports[0] if reports else None
 
     if not report_file:
         messages.error(
@@ -572,79 +529,14 @@ class OrderListView(
 
         user = self.request.user
 
-        if can_access_all_institutions(user):
-            institution_id = (
-                self.request.GET.get(
-                    "institution"
-                )
-            )
-
-            if institution_id:
-                try:
-                    institution_id = int(
-                        institution_id
-                    )
-
-                except (
-                    TypeError,
-                    ValueError,
-                ):
-                    return queryset.none()
-
-                queryset = queryset.filter(
-                    institution_id=institution_id,
-                )
-
-        elif has_own_institution(user):
+        if has_own_institution(user) and not can_access_all_institutions(user):
             queryset = queryset.filter(
                 institution_id=user.institution_id,
             )
-
-        else:
+        elif not can_access_all_institutions(user):
             return queryset.none()
-
-        status_filter = (
-            self.request.GET.get(
-                "status"
-            )
-        )
-
-        if status_filter:
-            queryset = queryset.filter(
-                status=status_filter,
-            )
-
-        search_query = (
-            self.request.GET.get(
-                "q"
-            )
-        )
-
-        if search_query:
-            queryset = queryset.filter(
-                number__icontains=search_query,
-            )
-
-        order_by = self.request.GET.get(
-            "order_by",
-            "-created_at",
-        )
-
-        allowed_ordering = {
-            "created_at",
-            "-created_at",
-            "deadline_date",
-            "-deadline_date",
-            "number",
-            "-number",
-        }
-
-        if order_by not in allowed_ordering:
-            order_by = "-created_at"
-
-        return queryset.order_by(
-            order_by
-        )
+        self.filter_form = OrderFilters(self.request.GET, user=user)
+        return self.filter_form.apply(queryset)
 
     def get_context_data(
         self,
@@ -664,6 +556,7 @@ class OrderListView(
                 "",
             )
         )
+        context['filter_form'] = self.filter_form
 
         context["current_institution"] = (
             self.request.GET.get(
@@ -765,19 +658,14 @@ class OrderDetailView(
         """
         Добавляет параметр next в контекст.
 
-        Валидация next будет реализована отдельным этапом WEB-01.
+        Ссылки и скрытые поля используют только проверенный локальный URL.
         """
 
         context = super().get_context_data(
             **kwargs
         )
 
-        context["next"] = (
-            self.request.GET.get(
-                "next",
-                "",
-            )
-        )
+        context["next"] = safe_next(self.request)
 
         return context
 
@@ -927,14 +815,7 @@ class OrderCreateView(
             "Создание предписания"
         )
 
-        context["violation_list"] = (
-            Violation.objects
-            .all()
-            .values_list(
-                "description",
-                flat=True,
-            )
-        )
+        context['violation_list'] = visible_violation_descriptions(self.request.user)
 
         context["is_director"] = (
             is_director(
@@ -949,12 +830,7 @@ class OrderCreateView(
             is not None
         )
 
-        context["next"] = (
-            self.request.GET.get(
-                "next",
-                "",
-            )
-        )
+        context["next"] = safe_next(self.request)
 
         return context
 
@@ -1063,17 +939,11 @@ class OrderCreateView(
                     if not violation_text:
                         continue
 
-                    violation, _created = (
-                        Violation.objects
-                        .get_or_create(
-                            description=violation_text,
-                        )
-                    )
-
-                    OrderViolation.objects.create(
-                        order=order,
-                        violation=violation,
-                    )
+                    violation = Violation.objects.filter(description=violation_text).order_by('pk').first()
+                    if violation is None:
+                        violation = Violation.objects.create(description=violation_text)
+                    if not OrderViolation.objects.filter(order=order, violation=violation).exists():
+                        OrderViolation.objects.create(order=order, violation=violation)
 
                 # --------------------------------------------
                 # Вложения
@@ -1116,21 +986,7 @@ class OrderCreateView(
             ),
         )
 
-        next_url = (
-            self.request.POST.get(
-                "next"
-            )
-        )
-
-        # WEB-01 будет исправлен отдельно.
-        if next_url:
-            return redirect(
-                next_url
-            )
-
-        return redirect(
-            self.success_url
-        )
+        return redirect(safe_next(self.request))
 
 
 class OrderUpdateView(
@@ -1261,14 +1117,7 @@ class OrderUpdateView(
             f"{self.object.number}"
         )
 
-        context["violation_list"] = (
-            Violation.objects
-            .all()
-            .values_list(
-                "description",
-                flat=True,
-            )
-        )
+        context['violation_list'] = visible_violation_descriptions(self.request.user)
 
         context["is_director"] = (
             is_director(
@@ -1280,12 +1129,7 @@ class OrderUpdateView(
             self.object.files.all()
         )
 
-        context["next"] = (
-            self.request.GET.get(
-                "next",
-                "",
-            )
-        )
+        context["next"] = safe_next(self.request)
 
         return context
 
@@ -1424,17 +1268,11 @@ class OrderUpdateView(
                     if not violation_text:
                         continue
 
-                    violation, _created = (
-                        Violation.objects
-                        .get_or_create(
-                            description=violation_text,
-                        )
-                    )
-
-                    OrderViolation.objects.create(
-                        order=order,
-                        violation=violation,
-                    )
+                    violation = Violation.objects.filter(description=violation_text).order_by('pk').first()
+                    if violation is None:
+                        violation = Violation.objects.create(description=violation_text)
+                    if not OrderViolation.objects.filter(order=order, violation=violation).exists():
+                        OrderViolation.objects.create(order=order, violation=violation)
 
                 # --------------------------------------------
                 # Новые вложения
@@ -1477,6 +1315,4 @@ class OrderUpdateView(
             ),
         )
 
-        return redirect(
-            self.success_url
-        )
+        return redirect(safe_next(self.request))

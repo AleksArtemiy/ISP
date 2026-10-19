@@ -1,0 +1,40 @@
+# Place map and limit_req_zone in the nginx http context. Empty keys skip GETs.
+# This is a coarse CPU/flood guard, not the application's password-failure budget
+# (5/account, 300/IP per 15 minutes; successes refund their reservations).
+# A burst of 30+ colleagues behind a NAT must fit without a 15-minute lockout.
+map $request_method $minobr_login_key {
+    default "";
+    POST $binary_remote_addr;
+}
+limit_req_zone $minobr_login_key zone=minobr_login:10m rate=10r/s;
+server {
+    listen 80;
+    server_name minobr.example.test;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name minobr.example.test;
+    ssl_certificate /etc/ssl/minobr/fullchain.pem;
+    ssl_certificate_key /etc/ssl/minobr/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 52m;
+    location /static/ { alias /srv/minobr/current/staticfiles/; }
+    location /media/ { return 404; }
+    location ~ ^/(accounts/|admin/)?login/$ {
+        limit_req zone=minobr_login burst=60 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

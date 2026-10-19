@@ -1,0 +1,15 @@
+[Unit]
+Description=Minobr prescription registry
+After=network.target postgresql.service
+[Service]
+User=minobr
+Group=minobr
+WorkingDirectory=/srv/minobr/current
+EnvironmentFile=/etc/minobr/production.env
+ExecStart=/srv/minobr/venv/bin/python -m waitress --listen=127.0.0.1:8000 --threads=8 --trusted-proxy=127.0.0.1 --trusted-proxy-headers="x-forwarded-for x-forwarded-proto" --max-request-body-size=54525952 config.wsgi:application
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target

@@ -1,9 +1,10 @@
 from django.urls import path
-from .views import OrderListView, OrderCreateView, OrderUpdateView, complete_order, OrderDetailView
+from .views import OrderListView, OrderCreateView, OrderUpdateView, complete_order, OrderDetailView, download_file
 
 app_name = 'prescriptions'
 
 urlpatterns = [
+    path('files/<int:pk>/download/', download_file, name='file_download'),
     path('', OrderListView.as_view(), name='order_list'),
     path('create/', OrderCreateView.as_view(), name='order_create'),
     path('update/<int:pk>/', OrderUpdateView.as_view(), name='order_update'),

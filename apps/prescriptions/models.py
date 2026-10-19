@@ -1,4 +1,4 @@
-import os
+from django.urls import reverse
 
 from django.db import models
 from django.conf import settings
@@ -85,9 +85,9 @@ class Order(models.Model):
     
     id = models.AutoField(primary_key=True)
     number = models.CharField(max_length=100, unique=True, db_column='number')
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, db_column='institution_id')
-    authority = models.ForeignKey(SupervisoryAuthority, on_delete=models.CASCADE, db_column='authority_id')
-    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='created_by_user_id')
+    institution = models.ForeignKey(Institution, on_delete=models.PROTECT, db_column='institution_id')
+    authority = models.ForeignKey(SupervisoryAuthority, on_delete=models.PROTECT, db_column='authority_id')
+    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, db_column='created_by_user_id')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NEW', db_column='status')
     issue_date = models.DateField(db_column='issue_date')
     deadline_date = models.DateField(db_column='deadline_date')
@@ -164,7 +164,7 @@ class OrderViolation(models.Model):
         db_column='order_id',
         related_name='order_violations'  # добавляем related_name
     )
-    violation = models.ForeignKey(Violation, on_delete=models.CASCADE, db_column='violation_id')
+    violation = models.ForeignKey(Violation, on_delete=models.PROTECT, db_column='violation_id')
 
     class Meta:
         db_table = 'order_violations'
@@ -193,15 +193,15 @@ class File(models.Model):
         managed = True
     """
     id = models.AutoField(primary_key=True)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, db_column='order_id', related_name='files')
-    uploaded_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_column='uploaded_by_user_id')
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, db_column='order_id', related_name='files')
+    uploaded_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, db_column='uploaded_by_user_id')
     original_filename = models.CharField(max_length=255, db_column='original_filename')
     file_path = models.TextField(db_column='file_path')
     uploaded_at = models.DateTimeField(auto_now_add=True, db_column='uploaded_at')
 
     @property
     def url(self):
-        return os.path.join(settings.MEDIA_URL, self.file_path)
+        return reverse('prescriptions:file_download', kwargs={'pk': self.pk})
     
     class Meta:
         db_table = 'files'

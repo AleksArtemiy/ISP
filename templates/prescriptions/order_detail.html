@@ -76,7 +76,7 @@
                             {% for file in order.files.all %}
                                 <li>
                                     <i class="bi bi-file-earmark"></i>
-                                    <a href="{{ file.url }}" target="_blank">{{ file.original_filename }}</a>
+                                    <a href="{% url 'prescriptions:file_download' file.pk %}">{{ file.original_filename }}</a>
                                     <span class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</span>
                                 </li>
                             {% endfor %}

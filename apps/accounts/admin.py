@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Role
+from .admin_forms import ThrottledAdminAuthenticationForm
+
+
+admin.site.login_form = ThrottledAdminAuthenticationForm
 
 
 class UserAdmin(BaseUserAdmin):
@@ -38,8 +42,15 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name')
+    list_display = ('id', 'code', 'name')
     search_fields = ('name',)
+    readonly_fields = ('code',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 admin.site.register(User, UserAdmin)

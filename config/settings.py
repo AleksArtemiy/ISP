@@ -107,10 +107,10 @@ else:
 
 ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
-    default="127.0.0.1,localhost",
+    default="" if IS_PRODUCTION else "127.0.0.1,localhost",
 )
 
-if IS_PRODUCTION and not ALLOWED_HOSTS:
+if IS_PRODUCTION and (not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS):
     raise RuntimeError(
         "Для production необходимо задать DJANGO_ALLOWED_HOSTS."
     )
@@ -119,6 +119,11 @@ if IS_PRODUCTION and not ALLOWED_HOSTS:
 CSRF_TRUSTED_ORIGINS = env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
 )
+if IS_PRODUCTION:
+    if len(SECRET_KEY) < 50 or "replace-with" in SECRET_KEY:
+        raise RuntimeError("В production требуется уникальный DJANGO_SECRET_KEY длиной не менее 50 символов.")
+    if not CSRF_TRUSTED_ORIGINS or any(not origin.startswith('https://') or '*' in origin for origin in CSRF_TRUSTED_ORIGINS):
+        raise RuntimeError("Задайте явные HTTPS DJANGO_CSRF_TRUSTED_ORIGINS.")
 
 
 # ============================================================
@@ -210,7 +215,7 @@ DATABASES = {
         ),
         "USER": os.getenv(
             "DB_USER",
-            "postgres",
+            "minobr_app",
         ),
         "PASSWORD": os.getenv(
             "DB_PASSWORD",
@@ -226,6 +231,8 @@ DATABASES = {
         ),
     }
 }
+if IS_PRODUCTION and DATABASES['default']['USER'] == 'postgres':
+    raise RuntimeError("Приложение production не должно подключаться как postgres.")
 
 
 # ============================================================
@@ -307,7 +314,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')))
+DATA_UPLOAD_MAX_NUMBER_FILES = 20  # Parser ceiling; business validation gives a useful error above five.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024
+TRUSTED_PROXY_IPS = env_list('DJANGO_TRUSTED_PROXY_IPS')
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 
 # ============================================================
@@ -352,7 +364,7 @@ if IS_PRODUCTION:
     SECURE_PROXY_SSL_HEADER = (
         "HTTP_X_FORWARDED_PROTO",
         "https",
-    )
+    ) if env_bool('DJANGO_TRUST_PROXY') else None
 
     # Начинаем с небольшого HSTS.
     # После проверки production-инфраструктуры
@@ -384,3 +396,14 @@ else:
 # ============================================================
 
 handler403 = "django.views.defaults.permission_denied"
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'standard': {'format': '{asctime} {levelname} {name} {message}', 'style': '{'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'standard'}},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'apps': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+}

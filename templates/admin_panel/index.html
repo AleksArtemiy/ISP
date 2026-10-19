@@ -76,7 +76,7 @@
                 <div>{{ u.institution.short_name|default:"—" }}</div>
                 <div>{{ u.role.name|default:"—" }}</div>
                 <div><button class="admin-btn-icon" onclick="openModal('Редактировать пользователя', '{% url 'admin_panel:admin_user_edit' u.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_panel:admin_user_delete' u.pk %}')">🗑️</button></div>
+                <div><button class="admin-btn-icon danger" title="Деактивировать" onclick="openModal('Деактивация пользователя', '{% url 'admin_panel:admin_user_delete' u.pk %}')">⏸️</button></div>
             </div>
             {% empty %}
             <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет пользователей</div>
@@ -179,8 +179,9 @@
                         // Устанавливаем action на исходный URL с ?modal=1
                         form.action = url + '?modal=1';
                         // Перехватываем отправку формы
-                        form.addEventListener('submit', function(e) {
+                        form.addEventListener('submit', function handleSubmit(e) {
                             e.preventDefault();
+                            const form = e.currentTarget;
                             const formData = new FormData(form);
                             fetch(form.action, {
                                 method: 'POST',
@@ -191,15 +192,10 @@
                                 credentials: 'same-origin'
                             })
                             .then(response => {
-                                // Пытаемся разобрать как JSON
-                                return response.json().then(data => {
-                                    return { ok: response.ok, data: data };
-                                }).catch(() => {
-                                    // Если не JSON – значит это HTML с ошибкой
-                                    return response.text().then(text => {
-                                        return { ok: false, html: text };
-                                    });
-                                });
+                                if (response.headers.get('Content-Type')?.includes('application/json')) {
+                                    return response.json().then(data => ({ok: response.ok, data}));
+                                }
+                                return response.text().then(html => ({ok: false, html}));
                             })
                             .then(result => {
                                 if (result.ok && result.data && result.data.success) {
@@ -208,6 +204,8 @@
                                     const activeTab = document.querySelector('.admin-tab.active');
                                     const tabParam = activeTab ? activeTab.dataset.tab : 'institutions';
                                     window.location.href = window.location.pathname + '?tab=' + tabParam;
+                                } else if (result.data && result.data.error) {
+                                    alert(result.data.error);
                                 } else if (result.html) {
                                     // Ошибка валидации – показываем форму с ошибками
                                     modalBody.innerHTML = result.html;
@@ -215,7 +213,7 @@
                                     if (newForm) {
                                         newForm.action = url + '?modal=1';
                                         // Переподвешиваем обработчик
-                                        newForm.addEventListener('submit', arguments.callee);
+                                        newForm.addEventListener('submit', handleSubmit);
                                     }
                                 } else {
                                     alert('Произошла ошибка. Попробуйте снова.');

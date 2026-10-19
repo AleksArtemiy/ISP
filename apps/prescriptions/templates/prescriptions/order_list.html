@@ -120,6 +120,12 @@
     <!-- Фильтры -->
     <div class="filter-card">
         <form method="get" class="row g-3">
+            {{ filter_form.errors }}
+            <div class="col-md-3"><label>Надзорный орган</label>{{ filter_form.authority }}</div>
+            <div class="col-md-2"><label>Выдано с</label>{{ filter_form.issue_from }}</div>
+            <div class="col-md-2"><label>Выдано по</label>{{ filter_form.issue_to }}</div>
+            <div class="col-md-2"><label>Срок с</label>{{ filter_form.deadline_from }}</div>
+            <div class="col-md-2"><label>Срок по</label>{{ filter_form.deadline_to }}</div>
             <div class="col-md-3">
                 <label class="form-label">Поиск</label>
                 <input type="text" name="q" class="form-control" placeholder="Номер предписания" value="{{ search_query }}">
@@ -130,6 +136,7 @@
                     <option value="">Все</option>
                     <option value="NEW" {% if current_status == 'NEW' %}selected{% endif %}>Новое</option>
                     <option value="IN_PROGRESS" {% if current_status == 'IN_PROGRESS' %}selected{% endif %}>В работе</option>
+                    <option value="EXPIRING" {% if current_status == 'EXPIRING' %}selected{% endif %}>Истекает</option>
                     <option value="COMPLETED" {% if current_status == 'COMPLETED' %}selected{% endif %}>Выполнено</option>
                     <option value="OVERDUE" {% if current_status == 'OVERDUE' %}selected{% endif %}>Просрочено</option>
                 </select>
@@ -241,10 +248,10 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a>
+                <a class="page-link" href="{% querystring page=1 %}">&laquo;</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Предыдущая</a>
+                <a class="page-link" href="{% querystring page=page_obj.previous_page_number %}">Предыдущая</a>
             </li>
             {% endif %}
 
@@ -254,10 +261,10 @@
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Следующая</a>
+                <a class="page-link" href="{% querystring page=page_obj.next_page_number %}">Следующая</a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a>
+                <a class="page-link" href="{% querystring page=page_obj.paginator.num_pages %}">&raquo;</a>
             </li>
             {% endif %}
         </ul>
