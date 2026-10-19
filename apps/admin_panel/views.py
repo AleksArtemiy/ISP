@@ -15,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
+from django.db.models.deletion import ProtectedError
 
 from apps.institutions.models import Institution, InstitutionType
 from apps.prescriptions.models import SupervisoryAuthority
@@ -36,6 +37,21 @@ def admin_required(view_func):
 def is_ajax(request):
     """Проверка, является ли запрос AJAX."""
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+
+def delete_reference(request, obj, label):
+    try:
+        obj.delete()
+    except ProtectedError:
+        error = 'Удаление запрещено: запись связана с историческими данными. Сначала проверьте связи.'
+        if is_ajax(request):
+            return JsonResponse({'success': False, 'error': error}, status=409)
+        messages.error(request, error)
+        return redirect('admin_panel:admin_panel')
+    messages.success(request, f'{label} удалено')
+    if is_ajax(request):
+        return JsonResponse({'success': True})
+    return redirect('admin_panel:admin_panel')
 
 
 # ------------------- ГЛАВНАЯ СТРАНИЦА -------------------
@@ -104,11 +120,7 @@ def institution_delete(request, pk):
     """Удаление учреждения с подтверждением."""
     inst = get_object_or_404(Institution, pk=pk)
     if request.method == 'POST':
-        inst.delete()
-        messages.success(request, 'Учреждение удалено')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, inst, 'Учреждение')
     # GET-запрос – показываем страницу подтверждения
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': inst, 'type': 'учреждение'})
@@ -166,8 +178,9 @@ def user_delete(request, pk):
     """Удаление пользователя."""
     user = get_object_or_404(User, pk=pk)
     if request.method == 'POST':
-        user.delete()
-        messages.success(request, 'Пользователь удалён')
+        user.is_active = False
+        user.save(update_fields=['is_active', 'updated_at'])
+        messages.success(request, 'Пользователь деактивирован. История сохранена.')
         if is_ajax(request):
             return JsonResponse({'success': True})
         return redirect('admin_panel:admin_panel')
@@ -227,11 +240,7 @@ def authority_delete(request, pk):
     """Удаление надзорного органа."""
     auth = get_object_or_404(SupervisoryAuthority, pk=pk)
     if request.method == 'POST':
-        auth.delete()
-        messages.success(request, 'Надзорный орган удалён')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, auth, 'Надзорный орган')
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': auth, 'type': 'надзорный орган'})
@@ -288,11 +297,7 @@ def institution_type_delete(request, pk):
     """Удаление типа учреждения."""
     inst_type = get_object_or_404(InstitutionType, pk=pk)
     if request.method == 'POST':
-        inst_type.delete()
-        messages.success(request, 'Тип учреждения удалён')
-        if is_ajax(request):
-            return JsonResponse({'success': True})
-        return redirect('admin_panel:admin_panel')
+        return delete_reference(request, inst_type, 'Тип учреждения')
     if is_ajax(request):
         return render(request, 'admin_panel/_confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})
     return render(request, 'admin_panel/confirm_delete.html', {'object': inst_type, 'type': 'тип учреждения'})

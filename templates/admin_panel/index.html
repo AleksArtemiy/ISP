@@ -76,7 +76,7 @@
                 <div>{{ u.institution.short_name|default:"—" }}</div>
                 <div>{{ u.role.name|default:"—" }}</div>
                 <div><button class="admin-btn-icon" onclick="openModal('Редактировать пользователя', '{% url 'admin_panel:admin_user_edit' u.pk %}')">✏️</button></div>
-                <div><button class="admin-btn-icon danger" onclick="openModal('Подтверждение удаления', '{% url 'admin_panel:admin_user_delete' u.pk %}')">🗑️</button></div>
+                <div><button class="admin-btn-icon danger" title="Деактивировать" onclick="openModal('Деактивация пользователя', '{% url 'admin_panel:admin_user_delete' u.pk %}')">⏸️</button></div>
             </div>
             {% empty %}
             <div class="admin-table-row" style="grid-template-columns:1fr; text-align:center; padding:1.5rem;">Нет пользователей</div>
@@ -208,6 +208,8 @@
                                     const activeTab = document.querySelector('.admin-tab.active');
                                     const tabParam = activeTab ? activeTab.dataset.tab : 'institutions';
                                     window.location.href = window.location.pathname + '?tab=' + tabParam;
+                                } else if (result.data && result.data.error) {
+                                    alert(result.data.error);
                                 } else if (result.html) {
                                     // Ошибка валидации – показываем форму с ошибками
                                     modalBody.innerHTML = result.html;
