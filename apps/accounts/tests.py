@@ -89,3 +89,9 @@ class AuthenticationTests(Stage1DataMixin, TestCase):
         self.client.force_login(self.system)
         self.assertEqual(self.client.get('/admin/accounts/user/').status_code, 200)
         self.assertEqual(self.client.get('/admin/accounts/user/add/').status_code, 200)
+
+    def test_system_role_identity_cannot_be_deleted_in_admin(self):
+        self.client.force_login(self.system)
+        role = self.roles['ADMIN']
+        self.assertEqual(self.client.post(f'/admin/accounts/role/{role.pk}/delete/', {'post': 'yes'}).status_code, 403)
+        self.assertTrue(Role.objects.filter(pk=role.pk, code='ADMIN').exists())

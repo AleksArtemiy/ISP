@@ -12,6 +12,13 @@ from .test_files import pdf_upload
 
 
 class PrescriptionAccessTests(Stage1DataMixin, TestCase):
+    def test_autocomplete_does_not_disclose_other_institution_violations(self):
+        violation = Violation.objects.create(description='PRIVATE-B-ONLY')
+        OrderViolation.objects.create(order=self.other_order, violation=violation)
+        self.client.force_login(self.director)
+        for path in ('/prescriptions/create/', f'/prescriptions/update/{self.order.pk}/'):
+            self.assertNotContains(self.client.get(path), 'PRIVATE-B-ONLY')
+
     def payload(self, **extra):
         value = {'number': 'CREATED', 'institution': self.other_inst.pk, 'authority': self.authority.pk,
                  'created_by_user': self.admin.pk, 'status': 'COMPLETED', 'issue_date': '2026-01-01',

@@ -119,6 +119,15 @@ from .filters import OrderFilters
 logger = logging.getLogger(__name__)
 
 
+def visible_violation_descriptions(user):
+    queryset = Violation.objects.all()
+    if not can_access_all_institutions(user):
+        if not has_own_institution(user):
+            return queryset.none().values_list('description', flat=True)
+        queryset = queryset.filter(orderviolation__order__institution_id=user.institution_id)
+    return queryset.values_list('description', flat=True).distinct()
+
+
 class PrescriptionAccessMixin(LoginRequiredMixin):
     """
     Базовый mixin доступа к модулю предписаний.
@@ -806,14 +815,7 @@ class OrderCreateView(
             "Создание предписания"
         )
 
-        context["violation_list"] = (
-            Violation.objects
-            .all()
-            .values_list(
-                "description",
-                flat=True,
-            )
-        )
+        context['violation_list'] = visible_violation_descriptions(self.request.user)
 
         context["is_director"] = (
             is_director(
@@ -1115,14 +1117,7 @@ class OrderUpdateView(
             f"{self.object.number}"
         )
 
-        context["violation_list"] = (
-            Violation.objects
-            .all()
-            .values_list(
-                "description",
-                flat=True,
-            )
-        )
+        context['violation_list'] = visible_violation_descriptions(self.request.user)
 
         context["is_director"] = (
             is_director(
