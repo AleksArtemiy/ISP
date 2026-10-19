@@ -1,0 +1,50 @@
+name: Stage 1 PostgreSQL checks
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: stage1_test
+          POSTGRES_PASSWORD: ci-only-postgres-password
+          POSTGRES_DB: minobr_stage1_audit
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PYTHON_DOTENV_DISABLED: '1'
+      TEST_DB_HOST: 127.0.0.1
+      TEST_DB_PORT: '5432'
+      TEST_DB_NAME: minobr_stage1_audit
+      TEST_DB_USER: stage1_test
+      TEST_DB_PASSWORD: ci-only-postgres-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python manage.py migrate --noinput --settings=config.test_settings
+      - run: python manage.py check --settings=config.test_settings
+      - run: python manage.py makemigrations --check --dry-run --settings=config.test_settings
+      - run: python manage.py test --noinput --settings=config.test_settings
+      - run: python scripts/check_production.py
+      - run: git diff --check && git diff --exit-code
+      - name: Reject tracked runtime data and secrets
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env|media/|__pycache__/)|\.pyc$|\.sqlite3$' | grep -v '\.env\.example$'; then
+            exit 1
+          fi

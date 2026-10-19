@@ -18,3 +18,5 @@ DATABASES = {"default": {
 ALLOWED_HOSTS = ["testserver", "127.0.0.1", "localhost"]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 MEDIA_ROOT = BASE_DIR / ".stage1" / "test_media"  # noqa: F405
+DEBUG = False
+LOGGING['loggers']['django']['level'] = 'CRITICAL'  # noqa: F405

@@ -8,3 +8,4 @@ Pillow==12.3.0
 pypdf==6.21.1
 olefile==0.47
 defusedxml==0.7.1
+waitress==3.0.2
