@@ -148,12 +148,14 @@ class OrderForm(forms.ModelForm):
                 }
             ),
             "issue_date": forms.DateInput(
+                format="%Y-%m-%d",
                 attrs={
                     "class": "form-control",
                     "type": "date",
                 }
             ),
             "deadline_date": forms.DateInput(
+                format="%Y-%m-%d",
                 attrs={
                     "class": "form-control",
                     "type": "date",

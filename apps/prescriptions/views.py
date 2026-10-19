@@ -1129,6 +1129,8 @@ class OrderUpdateView(
             self.object.files.all()
         )
 
+        context["hide_institution_fields"] = context["is_director"]
+
         context["next"] = safe_next(self.request)
 
         return context
