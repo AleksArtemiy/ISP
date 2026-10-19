@@ -52,7 +52,7 @@ def get_role_code(user) -> Optional[str]:
     if user is None:
         return None
 
-    if not getattr(user, "is_authenticated", False):
+    if not getattr(user, "is_authenticated", False) or not getattr(user, "is_active", False):
         return None
 
     role = getattr(user, "role", None)
@@ -92,12 +92,7 @@ def has_admin_role(user) -> bool:
     """
     Проверяет наличие прикладной роли администратора.
 
-    Важно:
-        Наличие Role.Code.ADMIN пока не заменяет Django-флаг
-        is_superuser для доступа к административной панели.
-
-        Перевод admin-panel на единую модель RBAC будет выполнен
-        отдельным безопасным этапом.
+    Роль даёт прикладные права, но не устанавливает is_staff/is_superuser.
     """
 
     return has_role(
@@ -138,14 +133,13 @@ def is_django_admin(user) -> bool:
     """
     Проверяет наличие системных прав суперпользователя Django.
 
-    Эта проверка пока используется для существующей административной
-    панели, поскольку текущий код admin-panel основан на is_superuser.
+    Это отдельный системный уровень; прикладные роли его не назначают.
     """
 
     if user is None:
         return False
 
-    if not getattr(user, "is_authenticated", False):
+    if not getattr(user, "is_authenticated", False) or not getattr(user, "is_active", False):
         return False
 
     return bool(
@@ -165,15 +159,20 @@ def can_access_all_institutions(user) -> bool:
     Такой доступ предоставляется:
 
         - Django-superuser;
-        - пользователю с ролью COMMITTEE.
+        - пользователям с ролями COMMITTEE и ADMIN.
 
     Неизвестные роли и пользователи без роли получают False.
     """
 
     return (
         is_django_admin(user)
+        or has_admin_role(user)
         or is_committee(user)
     )
+
+
+def can_access_admin_panel(user) -> bool:
+    return is_django_admin(user) or has_admin_role(user)
 
 
 def has_own_institution(user) -> bool:

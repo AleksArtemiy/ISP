@@ -13,7 +13,7 @@
 </head>
 <body>
 <div class="wrapper">
-    {% if user.is_superuser %}
+    {% if can_manage_system %}
     <a href="{% url 'admin_panel:admin_panel' %}" class="committee" style="text-decoration: none; background: #fef9c3; border-color: #facc15; color: #854d0e;">⚙️ Управление</a>
     {% endif %}
     <!-- ========== ХЕДЕР (как в committee_dashboard) ========== -->
@@ -37,7 +37,7 @@
             </div>
             <div class="topbar-right">
                 <div class="committee">Комитет образования</div>
-                {% if user.role and 'committee' in user.role.name.lower %}
+                {% if can_view_all_institutions %}
                     <a href="{% url 'committee_dashboard' %}" class="btn-back" style="text-decoration:none; padding:0 12px; height:36px; background:var(--blue-light); border-radius:12px; display:flex; align-items:center; font-size:14px; color:var(--blue);">
                         📊 На дашборд
                     </a>

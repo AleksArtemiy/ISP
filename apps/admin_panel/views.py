@@ -16,6 +16,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from django.db.models.deletion import ProtectedError
+from django.core.exceptions import PermissionDenied
+from functools import wraps
+from apps.accounts.permissions import can_access_admin_panel, is_django_admin
 
 from apps.institutions.models import Institution, InstitutionType
 from apps.prescriptions.models import SupervisoryAuthority
@@ -26,10 +29,10 @@ User = get_user_model()
 
 def admin_required(view_func):
     """Декоратор: доступ только для суперпользователей."""
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if not request.user.is_superuser:
-            messages.error(request, "Доступ запрещён. Требуются права администратора.")
-            return redirect('committee_dashboard')
+        if not can_access_admin_panel(request.user):
+            raise PermissionDenied('Доступ запрещён. Требуются права администратора.')
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -37,6 +40,13 @@ def admin_required(view_func):
 def is_ajax(request):
     """Проверка, является ли запрос AJAX."""
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+
+def managed_users(request):
+    users = User.objects.all()
+    if not is_django_admin(request.user):
+        users = users.filter(is_staff=False, is_superuser=False)
+    return users
 
 
 def delete_reference(request, obj, label):
@@ -62,7 +72,7 @@ def admin_panel(request):
     """Главная страница панели администратора."""
     context = {
         'institutions': Institution.objects.all().select_related('institution_type'),
-        'users': User.objects.all().select_related('institution', 'role'),
+        'users': managed_users(request).select_related('institution', 'role'),
         'authorities': SupervisoryAuthority.objects.all(),
         'institution_types': InstitutionType.objects.all(),
     }
@@ -154,7 +164,7 @@ def user_create(request):
 @admin_required
 def user_edit(request, pk):
     """Редактирование пользователя."""
-    user = get_object_or_404(User, pk=pk)
+    user = get_object_or_404(managed_users(request), pk=pk)
     if request.method == 'POST':
         form = UserForm(request.POST, instance=user)
         if form.is_valid():
@@ -176,7 +186,7 @@ def user_edit(request, pk):
 @admin_required
 def user_delete(request, pk):
     """Удаление пользователя."""
-    user = get_object_or_404(User, pk=pk)
+    user = get_object_or_404(managed_users(request), pk=pk)
     if request.method == 'POST':
         user.is_active = False
         user.save(update_fields=['is_active', 'updated_at'])

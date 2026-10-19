@@ -159,6 +159,8 @@ class UserManager(BaseUserManager):
         """
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        if extra_fields["is_staff"] is not True or extra_fields["is_superuser"] is not True:
+            raise ValueError("Суперпользователь должен иметь is_staff=True и is_superuser=True")
 
         return self.create_user(
             email,
@@ -354,3 +356,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         Возвращает краткое имя пользователя.
         """
         return self.first_name
+
+
+class LoginThrottle(models.Model):
+    """Shared PostgreSQL counters; no raw email/IP, no passwords."""
+    key = models.CharField(max_length=64, primary_key=True)
+    attempts = models.PositiveIntegerField(default=0)
+    started_at = models.DateTimeField()

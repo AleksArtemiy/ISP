@@ -6,6 +6,8 @@ Context processors приложения accounts.
 """
 
 from .permissions import (
+    can_access_admin_panel,
+    can_access_all_institutions,
     has_admin_role,
     is_committee,
     is_director,
@@ -65,4 +67,6 @@ def user_role(request):
 
     return {
         "user_role": role,
+        "can_manage_system": can_access_admin_panel(request.user),
+        "can_view_all_institutions": can_access_all_institutions(request.user),
     }

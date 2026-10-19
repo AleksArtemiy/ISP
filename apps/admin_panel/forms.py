@@ -1,4 +1,7 @@
 from django import forms
+from django.contrib.auth.password_validation import validate_password, password_validators_help_texts
+from django.core.exceptions import ValidationError
+from apps.accounts.models import Role
 from django.contrib.auth import get_user_model
 from apps.institutions.models import Institution, InstitutionType
 from apps.prescriptions.models import SupervisoryAuthority
@@ -55,6 +58,11 @@ class UserForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['role'].queryset = Role.objects.filter(code__in=Role.Code.values)
+        self.fields['password'].help_text += ' ' + ' '.join(password_validators_help_texts())
+
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
@@ -64,14 +72,23 @@ class UserForm(forms.ModelForm):
         if password or password_confirm:
             if password != password_confirm:
                 raise forms.ValidationError('Пароли не совпадают')
-            if len(password) < 6:
-                raise forms.ValidationError('Пароль должен содержать минимум 6 символов')
+            candidate = User(**{name: cleaned_data.get(name, '') for name in
+                ('email', 'first_name', 'last_name', 'patronymic')})
+            try:
+                validate_password(password, user=candidate)
+            except ValidationError as error:
+                self.add_error('password', error)
         else:
             # Если пароль не указан, проверяем, создаётся ли новый пользователь
             # При создании (instance нет) пароль обязателен
             if not self.instance.pk and not password:
                 raise forms.ValidationError('Пароль обязателен для нового пользователя')
 
+        role = cleaned_data.get('role')
+        if (role is None or role.code not in Role.Code.values) and not self.instance.is_superuser:
+            self.add_error('role', 'Выберите системную роль.')
+        if role and role.code == Role.Code.DIRECTOR and not cleaned_data.get('institution'):
+            self.add_error('institution', 'Для директора обязательно учреждение.')
         return cleaned_data
 
     def save(self, commit=True):
