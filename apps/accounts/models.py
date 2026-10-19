@@ -363,3 +363,6 @@ class LoginThrottle(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     attempts = models.PositiveIntegerField(default=0)
     started_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=["started_at"], name="login_throttle_ttl_idx")]

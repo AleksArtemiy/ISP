@@ -55,9 +55,11 @@ class AuthenticationTests(Stage1DataMixin, TestCase):
         self.assertEqual(self.client.post('/login/', {'email': self.committee.email, 'password': 'Valid-Stage1-Pass!42'}).status_code, 302)
 
     def test_ip_rate_limit_applies_to_different_account_names(self):
-        for index in range(30):
+        from .throttling import IP_LIMIT
+        for index in range(IP_LIMIT):
             self.assertEqual(self.client.post('/login/', {'email': f'unknown{index}@example.test', 'password': 'bad'}).status_code, 200)
         self.assertEqual(self.client.post('/login/', {'email': 'next@example.test', 'password': 'bad'}).status_code, 429)
+        self.assertEqual(LoginThrottle.objects.count(), 1)
 
     def test_logout_requires_post_and_csrf(self):
         self.client.force_login(self.committee)

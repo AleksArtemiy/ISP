@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Role
+from .admin_forms import ThrottledAdminAuthenticationForm
+
+
+admin.site.login_form = ThrottledAdminAuthenticationForm
 
 
 class UserAdmin(BaseUserAdmin):

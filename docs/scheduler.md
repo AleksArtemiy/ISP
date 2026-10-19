@@ -55,3 +55,32 @@ Arguments: `manage.py update_order_statuses`. Start in: каталог прое�
 Включить запуск пропущенной задачи и повтор при ошибке через пять минут.
 Запустить вручную, проверить код 0, History и лог. Эти действия выполняются
 на целевом сервере; наличие данного примера не подтверждает работу scheduler.
+
+## Очистка счётчиков входа
+
+Запускать `python manage.py cleanup_login_counters` каждые пять минут под той
+же служебной учётной записью и с production-окружением. Команда удаляет только
+LoginThrottle с истёкшим 15-минутным окном пакетами до 500 строк, пропускает
+занятые строки и выводит количество удалённых записей. Рабочие предметные
+таблицы не затрагиваются. Вход также выполняет один пакет очистки, но это
+не заменяет scheduler при отсутствии запросов. Проверять ошибки команды
+и отсутствие успешного выполнения более 15 минут.
+
+Linux: создать minobr-login-cleanup.service по примеру minobr-status.service
+с `ExecStart=/srv/minobr/venv/bin/python manage.py cleanup_login_counters`.
+Таймер minobr-login-cleanup.timer:
+
+```ini
+[Unit]
+Description=Expire Minobr login counters
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+```
+
+Активировать `systemctl enable --now minobr-login-cleanup.timer`; проверить
+ручной запуск service, journal и list-timers. Windows: отдельная задача с
+Arguments `manage.py cleanup_login_counters`, повтор каждые пять минут без
+ограничения длительности; остальные параметры аналогичны задаче статусов.
