@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from pathlib import Path, PureWindowsPath
 
 from django.conf import settings
@@ -20,4 +21,5 @@ def private_path(value):
 def download_name(value):
     name = str(value).replace("\\", "/").rsplit("/", 1)[-1]
     name = re.sub(r"[\x00-\x1f\x7f]", "", name).strip(" .")
+    name = ''.join(c for c in name if not unicodedata.category(c).startswith('C'))
     return name[:180] or "document"

@@ -68,7 +68,7 @@ def main():
             raise SystemExit(completed.returncode)
 
     python = sys.executable
-    for command in ('migrate --noinput', 'check', 'makemigrations --check --dry-run', 'test --noinput', 'update_order_statuses'):
+    for command in ('migrate --noinput', 'schema_preflight', 'check', 'makemigrations --check --dry-run', 'test --noinput', 'update_order_statuses', 'collectstatic --noinput'):
         run([python, 'manage.py', *command.split(), '--settings=config.test_settings'])
     run([python, 'scripts/check_production.py'])
     run(['git', 'diff', '--check'])

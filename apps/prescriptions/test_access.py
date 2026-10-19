@@ -36,6 +36,9 @@ class PrescriptionAccessTests(Stage1DataMixin, TestCase):
             self.assertEqual(self.client.get(path).status_code, 404)
             self.assertEqual(self.client.post(path, self.payload()).status_code, 404 if '/update/' in path else 405)
         self.assertEqual(self.client.post(f'/prescriptions/complete/{self.other_order.pk}/', {'report': pdf_upload()}).status_code, 403)
+        self.client.force_login(self.other_director)
+        self.assertEqual(self.client.get(f'/prescriptions/{self.other_order.pk}/').status_code, 200)
+        self.assertEqual(self.client.get(f'/prescriptions/{self.order.pk}/').status_code, 404)
 
     def test_post_tampering_on_create_and_update(self):
         self.client.force_login(self.director)

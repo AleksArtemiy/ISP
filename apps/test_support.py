@@ -16,9 +16,11 @@ class Stage1DataMixin:
         cls.authority = SupervisoryAuthority.objects.create(name="Надзор")
         cls.committee = User.objects.create_user("committee@example.test", "Valid-Stage1-Pass!42", role=cls.roles[Role.Code.COMMITTEE])
         cls.director = User.objects.create_user("director@example.test", "Valid-Stage1-Pass!42", role=cls.roles[Role.Code.DIRECTOR], institution=cls.inst)
+        cls.other_director = User.objects.create_user("director-b@example.test", "Valid-Stage1-Pass!42", role=cls.roles[Role.Code.DIRECTOR], institution=cls.other_inst)
         cls.admin = User.objects.create_user("admin@example.test", "Valid-Stage1-Pass!42", role=cls.roles[Role.Code.ADMIN])
         cls.system = User.objects.create_superuser("system@example.test", "Valid-Stage1-Pass!42")
-        cls.unknown = User.objects.create_user("unknown@example.test", "Valid-Stage1-Pass!42")
+        unknown_role = Role.objects.create(name='Unknown', code='UNKNOWN')
+        cls.unknown = User.objects.create_user("unknown@example.test", "Valid-Stage1-Pass!42", role=unknown_role)
         cls.unassigned = User.objects.create_user("unassigned@example.test", "Valid-Stage1-Pass!42", role=cls.roles[Role.Code.DIRECTOR])
         cls.order = Order.objects.create(number="A-1", institution=cls.inst, authority=cls.authority,
             created_by_user=cls.committee, issue_date=date.today(), deadline_date=date.today()+timedelta(days=30))

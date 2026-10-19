@@ -1,4 +1,5 @@
 import io
+import struct
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -45,7 +46,51 @@ def office_upload(ext, active=False):
     return SimpleUploadedFile("document" + ext, output.getvalue())
 
 
+def ole_upload(ext):
+    # Minimal real CFB container with regular 4096-byte Office streams.
+    free, end, fat_sector = 0xffffffff, 0xfffffffe, 0xfffffffd
+    header = bytearray(512)
+    header[:8] = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
+    struct.pack_into('<HHHHH', header, 24, 62, 3, 0xfffe, 9, 6)
+    struct.pack_into('<IIIIIIIII', header, 40, 0, 1, 0, 0, 4096, end, 0, end, 0)
+    struct.pack_into('<109I', header, 76, 1, *([free]*108))
+    def entry(name, kind, first, size, child=free, right=free):
+        row = bytearray(128)
+        encoded = (name+'\0').encode('utf-16le')
+        row[:len(encoded)] = encoded
+        struct.pack_into('<HBBIII', row, 64, len(encoded), kind, 1, free, right, child)
+        struct.pack_into('<IQ', row, 116, first, size)
+        return row
+    if ext == '.doc':
+        word = bytearray(4096)
+        word[:4] = b'\xec\xa5\xc1\x00'
+        streams = [('WordDocument', bytes(word)), ('0Table', bytes(4096))]
+    else:
+        book = struct.pack('<HHHHI', 0x0809, 8, 0x0600, 5, 0)
+        book += struct.pack('<HH', 0x003c, 4076) + bytes(4076) + struct.pack('<HH', 0x000a, 0)
+        streams = [('Workbook', book)]
+    directory = entry('Root Entry', 5, end, 0, child=1)
+    fat = [end, fat_sector]
+    payload = b''
+    for index, (name, content) in enumerate(streams):
+        start = 2 + 8*index
+        directory += entry(name, 2, start, len(content), right=index+2 if index+1 < len(streams) else free)
+        fat.extend([*range(start+1, start+8), end])
+        payload += content
+    directory += bytes(512-len(directory))
+    fat += [free]*(128-len(fat))
+    return SimpleUploadedFile('legacy'+ext, bytes(header)+directory+struct.pack('<128I', *fat)+payload)
+
+
 class ContentTests(SimpleTestCase):
+    def test_valid_legacy_doc_and_xls_structures(self):
+        for ext in ('.doc', '.xls'):
+            validate_uploaded_files([ole_upload(ext)])
+        disguised = ole_upload('.doc')
+        disguised.name = 'spoof.xls'
+        with self.assertRaises(ValidationError):
+            validate_uploaded_files([disguised])
+
     def test_valid_pdf_and_ooxml_ignore_untrusted_mime(self):
         for file in (pdf_upload(), office_upload(".docx"), office_upload(".xlsx")):
             with self.subTest(name=file.name):
@@ -104,7 +149,7 @@ class DownloadTests(Stage1DataMixin, TestCase):
         self.assertEqual(self.client.get(self.url).status_code, 302)
 
     def test_authorized_download_has_safe_headers_and_legacy_path(self):
-        for user in (self.committee, self.director, self.system):
+        for user in (self.committee, self.director, self.system, self.admin):
             self.client.force_login(user)
             response = self.client.get(self.url)
             self.assertEqual(response.status_code, 200)

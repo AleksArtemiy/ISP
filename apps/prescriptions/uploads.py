@@ -103,6 +103,8 @@ def _ole(data, ext):
                 offset += 4
                 if offset + size > len(workbook) or record == 0x002F:
                     raise ValueError("Excel record/encryption")
+                if record == 0x0809 and size >= 4 and struct.unpack_from('<H', workbook, offset+2)[0] == 0x0040:
+                    raise ValueError("Excel 4 macro sheet")
                 found_eof |= record == 0x000A
                 offset += size
             if not found_eof or offset != len(workbook):

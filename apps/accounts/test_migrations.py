@@ -3,7 +3,8 @@ from types import SimpleNamespace
 
 from django.apps import apps
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
+from django.db.migrations.executor import MigrationExecutor
 
 from .models import Role, User
 
@@ -36,3 +37,37 @@ class RoleSeedingTests(TestCase):
         Role.objects.create(name="unknown", code="UNKNOWN")
         with self.assertRaises(RuntimeError):
             self.seed()
+
+
+class LegacyMigrationTests(TransactionTestCase):
+    def setUp(self):
+        executor = MigrationExecutor(connection)
+        self.latest = executor.loader.graph.leaf_nodes()
+        self.before = [('accounts', '0003_alter_role_options')]
+        executor.migrate(self.before)
+        self.old_apps = executor.loader.project_state(self.before).apps
+
+    def tearDown(self):
+        MigrationExecutor(connection).migrate(self.latest)
+
+    def test_existing_nullable_role_codes_preserve_user_and_role_ids(self):
+        LegacyRole = self.old_apps.get_model('accounts', 'Role')
+        LegacyUser = self.old_apps.get_model('accounts', 'User')
+        for name in ('admin', 'committee', 'director'):
+            LegacyRole.objects.get_or_create(name=name)
+        LegacyRole.objects.update(code=None)
+        role = LegacyRole.objects.get(name='director')
+        user = LegacyUser.objects.create(email='legacy@example.test', first_name='Legacy', last_name='User',
+                                         password='test-only-unusable', role=role)
+        ids = set(LegacyRole.objects.values_list('id', flat=True))
+        MigrationExecutor(connection).migrate(self.latest)
+        user = User.objects.get(pk=user.pk)
+        self.assertEqual(user.role_id, role.pk)
+        self.assertEqual(user.role.code, 'DIRECTOR')
+        self.assertSetEqual(set(Role.objects.values_list('id', flat=True)), ids)
+
+    def test_empty_legacy_roles_are_created(self):
+        LegacyRole = self.old_apps.get_model('accounts', 'Role')
+        LegacyRole.objects.all().delete()
+        MigrationExecutor(connection).migrate(self.latest)
+        self.assertSetEqual(set(Role.objects.values_list('code', flat=True)), set(Role.Code.values))

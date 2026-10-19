@@ -13,7 +13,7 @@ class SafeNextTests(SimpleTestCase):
     def test_external_and_obfuscated_urls_rejected(self):
         for value in ("https://evil.test/", "http://evil.test/", "//evil.test/", "///evil.test/",
                       "javascript:alert(1)", "\\\\evil.test", "/\\evil.test", "/%2f/evil.test",
-                      "/%0a/evil.test", "https://testserver@evil.test/", "relative/path"):
+                      "/%0a/evil.test", "/%252f/evil.test", "https://testserver@evil.test/", "relative/path"):
             with self.subTest(value=value):
                 request = RequestFactory().get("/", {"next": value})
                 self.assertEqual(safe_next(request), "/prescriptions/")
