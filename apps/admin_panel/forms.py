@@ -47,6 +47,11 @@ class UserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['email', 'first_name', 'last_name', 'patronymic', 'phone', 'institution', 'role', 'is_active']
+        labels = {
+            'email': 'Электронная почта', 'first_name': 'Имя', 'last_name': 'Фамилия',
+            'patronymic': 'Отчество', 'phone': 'Телефон', 'institution': 'Учреждение',
+            'role': 'Роль', 'is_active': 'Активен',
+        }
         widgets = {
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -106,6 +111,7 @@ class SupervisoryAuthorityForm(forms.ModelForm):
     class Meta:
         model = SupervisoryAuthority
         fields = ['name']
+        labels = {'name': 'Название надзорного органа'}
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
         }

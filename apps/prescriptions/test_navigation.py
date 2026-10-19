@@ -41,6 +41,20 @@ class NavigationFlowTests(Stage1DataMixin, TestCase):
     def setUp(self):
         self.client.force_login(self.committee)
 
+    def test_detail_displays_the_actual_institution_name(self):
+        response = self.client.get(reverse("prescriptions:order_detail", args=[self.order.pk]))
+        self.assertContains(response, self.inst.name)
+        self.assertNotContains(response, self.other_inst.name)
+
+    def test_edit_preserves_dates_in_browser_date_inputs(self):
+        for user in (self.committee, self.director):
+            with self.subTest(user=user.email):
+                self.client.force_login(user)
+                response = self.client.get(reverse("prescriptions:order_update", args=[self.order.pk]))
+                for field in ("issue_date", "deadline_date"):
+                    value = getattr(self.order, field).isoformat()
+                    self.assertContains(response, f'name="{field}" value="{value}"')
+
     def test_unsafe_next_not_echoed_in_links_or_hidden_inputs(self):
         for url in (reverse("prescriptions:order_create"), reverse("prescriptions:order_update", args=[self.order.pk]),
                     reverse("prescriptions:order_detail", args=[self.order.pk])):

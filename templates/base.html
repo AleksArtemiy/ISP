@@ -85,30 +85,7 @@
     </main>
 </div>
 
-<!-- Скрипты -->
-<script>
-    // Переключение выпадающего меню профиля
-    document.getElementById('profileBtn')?.addEventListener('click', function(e) {
-        e.stopPropagation();
-        document.getElementById('dropdown').classList.toggle('active');
-    });
-    document.addEventListener('click', function() {
-        document.getElementById('dropdown')?.classList.remove('active');
-    });
-    // Глобальный поиск (можно вынести в отдельный файл)
-    const globalSearch = document.getElementById('globalSearch');
-    if (globalSearch) {
-        globalSearch.addEventListener('input', function() {
-            const term = this.value.toLowerCase();
-            // Поиск по карточкам и строкам таблицы (если они есть на странице)
-            document.querySelectorAll('.school-card, .table-row:not(.expanded-content)').forEach(el => {
-                const text = el.innerText.toLowerCase();
-                el.style.display = text.includes(term) ? '' : 'none';
-            });
-        });
-    }
-</script>
-<!-- Блок для дополнительных скриптов -->
+<!-- Обработчики подключаются один раз из внешних файлов. -->
 <script src="{% static 'js/profile_dropdown.js' %}"></script>
 <script src="{% static 'js/global_search.js' %}"></script>
 <script src="{% static 'js/table_expand.js' %}"></script>

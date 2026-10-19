@@ -94,6 +94,8 @@ is_staff/is_superuser. Условия TC-A3/TC-ADM исходной ПМИ и с
 | S1-FILE-06 | Прямой /media/ недоступен в DEBUG и через production proxy | test_direct_media_not_public_even_in_debug плюс ручная проверка proxy |
 | S1-WEB-01 | next с внешним адресом, //, javascript:, backslash и кодированными обходами не попадает в redirect/href/hidden | test_navigation.SafeNextTests и NavigationFlowTests |
 | S1-WEB-02 | Имя файла с HTML отображается как текст; в preview не выполняется код | test_file_names_use_text_nodes плюс ручной DOM-сценарий |
+| S1-WEB-03 | Карточка содержит фактическое полное название учреждения | test_navigation.test_detail_displays_the_actual_institution_name |
+| S1-WEB-04 | При редактировании даты уже заполнены; сохранение без повторного выбора дат успешно | test_navigation.test_edit_preserves_dates_in_browser_date_inputs плюс браузерная проверка |
 | S1-DATA-01 | Удаление связанного учреждения/органа/автора/загрузчика/нарушения не уничтожает историю; UI показывает причину | test_history.HistoryTests |
 | S1-DATA-02 | Действие удаления пользователя деактивирует его, предписания остаются | test_user_action_deactivates_and_preserves_history |
 | S1-BIZ-01 | Пятница/выходные, сегодня, 9/10/11 рабочих дней и просрочка дают ожидаемую индикацию | test_deadlines.CalendarTests и StatusTests |
