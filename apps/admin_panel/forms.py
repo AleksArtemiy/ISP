@@ -106,6 +106,7 @@ class SupervisoryAuthorityForm(forms.ModelForm):
     class Meta:
         model = SupervisoryAuthority
         fields = ['name']
+        labels = {'name': 'Название надзорного органа'}
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
         }
