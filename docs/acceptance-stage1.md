@@ -66,8 +66,12 @@ is_staff/is_superuser. Условия TC-A3/TC-ADM исходной ПМИ и с
 | S1-AUTH-01 | Войти всеми разрешёнными ролями; получить свой стартовый раздел | accounts.tests.AuthenticationTests |
 | S1-AUTH-02 | Неизвестный email, неверный пароль, inactive: одинаковое сообщение, сессия не создаётся | test_unknown_wrong_password_and_inactive_have_same_message |
 | S1-AUTH-03 | Неизвестная роль и директор без учреждения не входят | test_bad_role_or_missing_institution_does_not_log_in |
-| S1-AUTH-04 | Шестая попытка на email / 31-я на IP за 15 минут: 429; после окна вход разрешён | rate_limit tests в accounts.tests |
+| S1-AUTH-04 | После пяти неудачных/выполняющихся проверок существующей учётной записи или 300 на IP новые проверки блокируются до конца 15-минутного окна; приложение возвращает 429 | rate_limit tests в accounts.tests |
 | S1-AUTH-05 | GET logout: 405, сессия сохранена; POST без CSRF: 403; валидный POST завершает сессию | test_logout_requires_post_and_csrf |
+| S1-AUTH-06 | 40 разных пользователей за одним IP успешно входят; успешная проверка возвращает только собственный бюджет, не сбрасывая чужие ошибки | accounts.test_throttling.LoginThrottleTests |
+| S1-AUTH-07 | Случайные email не создают отдельные строки; окна с TTL 15 минут очищаются при входе и командой; свежие/занятые counters сохранены; индекс started_at существует | LoginThrottleTests и LoginThrottleConcurrencyTests |
+| S1-AUTH-08 | /admin/login/ использует тот же бюджет и не вызывает authenticate при блокировке; правильный пароль не расходует бюджет | admin_login/admin_success tests в accounts.test_throttling |
+| S1-AUTH-09 | Proxy: 40 одновременных успешных POST с одного NAT проходят; GET не расходует лимит; превышение 10r/s + burst=60 даёт 429 | Ручная проверка реального Nginx по deploy/nginx.conf.example |
 | S1-RBAC-01 | Проверить list/detail/create/update/complete для всех ролей | prescriptions.test_access.PrescriptionAccessTests |
 | S1-RBAC-02 | Директор А запрашивает А/Б и наоборот, включая прямой POST | test_director_cannot_access_other_order_even_by_post |
 | S1-RBAC-03 | Подменить institution/created_by_user/status в запросе создания и редактирования | test_post_tampering_on_create_and_update |
@@ -76,6 +80,7 @@ is_staff/is_superuser. Условия TC-A3/TC-ADM исходной ПМИ и с
 | S1-ADMIN-02 | ADMIN пытается сбросить пароль/деактивировать системного пользователя: 404, данные сохранены | admin_panel.test_security.UserPolicyTests |
 | S1-ADMIN-03 | Короткий, распространённый, цифровой и похожий пароль отклоняются; валидный хешируется; пустой при edit не меняет пароль | UserPolicyTests |
 | S1-ADMIN-04 | Создать директора без учреждения: понятная ошибка формы | test_director_requires_institution |
+| S1-ADMIN-05 | Django-superuser и staff с change/delete permissions могут только читать бизнес-модели; смена автора, COMPLETED без отчёта, add/change/delete POST и поддельное массовое удаление не меняют БД/файл | prescriptions.test_admin.BusinessAdminTests |
 | S1-PRES-01 | Создать и изменить номер, даты, надзорный орган, нарушения и вложения; проверить список и карточку | test_navigation.NavigationFlowTests и test_access |
 | S1-PRES-02 | Завершить без отчёта/с неверным файлом: статус не меняется; с допустимым отчётом: COMPLETED и File сохранены | test_complete_requires_saved_valid_report_and_is_atomic, test_files |
 | S1-PRES-03 | Попытаться выставить COMPLETED через обычный edit: ошибка, требуется отчёт | test_generic_edit_cannot_bypass_report_requirement |
@@ -100,7 +105,9 @@ is_staff/is_superuser. Условия TC-A3/TC-ADM исходной ПМИ и с
 | S1-PERF-01 | Число запросов не растёт с числом учреждений и не превышает 8 на тестовой странице | test_queries_do_not_grow_with_institution_count |
 | S1-DB-01 | Пустая PostgreSQL → migrate → роли → пользователи → вход → приложение | scripts/verify_stage1.py |
 | S1-DB-02 | Старая nullable Role.code мигрирует с сохранением ID и пользователя; неизвестные роли не преобразуются произвольно | accounts.test_migrations |
+| S1-DB-03 | accounts 0009 добавляет индекс started_at без удаления/изменения существующих counters | test_ttl_index_exists_in_postgresql; upgrade 0008→0009 на синтетической БД в release-verification.md |
 | S1-OPS-01 | Production-like check --deploy: нет необъяснённых ошибок/предупреждений | scripts/check_production.py и отдельный запуск на целевом окружении |
+| S1-OPS-02 | cleanup_login_counters выполняется каждые пять минут с контролем ошибок и пропущенного запуска | Ручная проверка scheduler по docs/scheduler.md |
 
 ## Ручная приёмка интерфейса
 
