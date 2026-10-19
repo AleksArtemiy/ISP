@@ -39,7 +39,7 @@ def admin_required(view_func):
 
 def is_ajax(request):
     """Проверка, является ли запрос AJAX."""
-    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' or request.GET.get('modal') == '1'
 
 
 def managed_users(request):

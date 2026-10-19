@@ -30,11 +30,15 @@ def reserve_login_attempt(request, email):
     keys = login_keys(request, email)
     with transaction.atomic():
         locked = []
-        for key, limit in sorted(keys):
+        # Lock IP before account consistently, rejecting floods before creating
+        # rows for arbitrarily many invented email addresses.
+        for key, limit in reversed(keys):
             LoginThrottle.objects.get_or_create(key=key, defaults={"started_at": now})
             row = LoginThrottle.objects.select_for_update().get(key=key)
             if row.started_at <= now - WINDOW:
                 row.attempts, row.started_at = 0, now
+            if row.attempts >= limit:
+                return False
             locked.append((row, limit))
         if any(row.attempts >= limit for row, limit in locked):
             return False

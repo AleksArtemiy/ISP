@@ -84,3 +84,8 @@ class AuthenticationTests(Stage1DataMixin, TestCase):
     def test_superuser_manager_rejects_false_system_flags(self):
         with self.assertRaises(ValueError):
             User.objects.create_superuser('invalid@example.test', is_staff=False)
+
+    def test_standard_django_admin_user_pages(self):
+        self.client.force_login(self.system)
+        self.assertEqual(self.client.get('/admin/accounts/user/').status_code, 200)
+        self.assertEqual(self.client.get('/admin/accounts/user/add/').status_code, 200)

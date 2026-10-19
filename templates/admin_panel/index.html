@@ -179,8 +179,9 @@
                         // Устанавливаем action на исходный URL с ?modal=1
                         form.action = url + '?modal=1';
                         // Перехватываем отправку формы
-                        form.addEventListener('submit', function(e) {
+                        form.addEventListener('submit', function handleSubmit(e) {
                             e.preventDefault();
+                            const form = e.currentTarget;
                             const formData = new FormData(form);
                             fetch(form.action, {
                                 method: 'POST',
@@ -191,15 +192,10 @@
                                 credentials: 'same-origin'
                             })
                             .then(response => {
-                                // Пытаемся разобрать как JSON
-                                return response.json().then(data => {
-                                    return { ok: response.ok, data: data };
-                                }).catch(() => {
-                                    // Если не JSON – значит это HTML с ошибкой
-                                    return response.text().then(text => {
-                                        return { ok: false, html: text };
-                                    });
-                                });
+                                if (response.headers.get('Content-Type')?.includes('application/json')) {
+                                    return response.json().then(data => ({ok: response.ok, data}));
+                                }
+                                return response.text().then(html => ({ok: false, html}));
                             })
                             .then(result => {
                                 if (result.ok && result.data && result.data.success) {
@@ -217,7 +213,7 @@
                                     if (newForm) {
                                         newForm.action = url + '?modal=1';
                                         // Переподвешиваем обработчик
-                                        newForm.addEventListener('submit', arguments.callee);
+                                        newForm.addEventListener('submit', handleSubmit);
                                     }
                                 } else {
                                     alert('Произошла ошибка. Попробуйте снова.');

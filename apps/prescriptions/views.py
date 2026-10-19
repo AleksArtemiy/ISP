@@ -90,6 +90,7 @@ from django.views.generic import (
     ListView,
     UpdateView,
 )
+from django.views.decorators.http import require_safe
 
 from apps.accounts.permissions import (
     can_access_all_institutions,
@@ -300,6 +301,7 @@ def handle_uploaded_files(order, files, user):
 
 
 @login_required
+@require_safe
 def download_file(request, pk):
     files = File.objects.select_related('order')
     if not can_access_all_institutions(request.user):
@@ -370,9 +372,11 @@ def complete_order(request, pk):
             },
         )
 
-    report_file = request.FILES.get(
-        "report",
-    )
+    reports = request.FILES.getlist('report')
+    if len(reports) > 1:
+        messages.error(request, 'Для завершения загрузите ровно один итоговый отчёт.')
+        return render(request, 'prescriptions/complete_order.html', {'order': order})
+    report_file = reports[0] if reports else None
 
     if not report_file:
         messages.error(
@@ -933,17 +937,11 @@ class OrderCreateView(
                     if not violation_text:
                         continue
 
-                    violation, _created = (
-                        Violation.objects
-                        .get_or_create(
-                            description=violation_text,
-                        )
-                    )
-
-                    OrderViolation.objects.create(
-                        order=order,
-                        violation=violation,
-                    )
+                    violation = Violation.objects.filter(description=violation_text).order_by('pk').first()
+                    if violation is None:
+                        violation = Violation.objects.create(description=violation_text)
+                    if not OrderViolation.objects.filter(order=order, violation=violation).exists():
+                        OrderViolation.objects.create(order=order, violation=violation)
 
                 # --------------------------------------------
                 # Вложения
@@ -1275,17 +1273,11 @@ class OrderUpdateView(
                     if not violation_text:
                         continue
 
-                    violation, _created = (
-                        Violation.objects
-                        .get_or_create(
-                            description=violation_text,
-                        )
-                    )
-
-                    OrderViolation.objects.create(
-                        order=order,
-                        violation=violation,
-                    )
+                    violation = Violation.objects.filter(description=violation_text).order_by('pk').first()
+                    if violation is None:
+                        violation = Violation.objects.create(description=violation_text)
+                    if not OrderViolation.objects.filter(order=order, violation=violation).exists():
+                        OrderViolation.objects.create(order=order, violation=violation)
 
                 # --------------------------------------------
                 # Новые вложения

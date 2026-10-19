@@ -81,6 +81,15 @@ class PrescriptionAccessTests(Stage1DataMixin, TestCase):
                 self.client.post('/prescriptions/create/', self.payload(status='NEW'))
         self.assertEqual((Order.objects.count(), Violation.objects.count(), OrderViolation.objects.count()), before)
 
+    def test_repeated_and_historical_duplicate_violation_texts_do_not_crash(self):
+        Violation.objects.create(description='Repeat')
+        Violation.objects.create(description='Repeat')
+        self.client.force_login(self.committee)
+        response = self.client.post('/prescriptions/create/', self.payload(status='NEW',
+            **{'violations-TOTAL_FORMS': 2, 'violations-0-text': 'Repeat', 'violations-1-text': 'Repeat'}))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Order.objects.get(number='CREATED').order_violations.count(), 1)
+
 
 class FilterTests(Stage1DataMixin, TestCase):
     def test_combined_filters_and_invalid_values_fail_closed(self):

@@ -315,7 +315,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 
 MEDIA_ROOT = Path(os.getenv('DJANGO_MEDIA_ROOT', str(BASE_DIR / 'media')))
-DATA_UPLOAD_MAX_NUMBER_FILES = 5
+DATA_UPLOAD_MAX_NUMBER_FILES = 20  # Parser ceiling; business validation gives a useful error above five.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024
 TRUSTED_PROXY_IPS = env_list('DJANGO_TRUSTED_PROXY_IPS')
 SESSION_COOKIE_SAMESITE = 'Lax'
