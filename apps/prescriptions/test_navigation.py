@@ -76,5 +76,20 @@ class NavigationFlowTests(Stage1DataMixin, TestCase):
     def test_generic_edit_cannot_bypass_report_requirement(self):
         response = self.client.post(reverse("prescriptions:order_update", args=[self.order.pk]), self.payload(self.order.number, status="COMPLETED"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Для завершения загрузите отчёт через действие «Завершить».")
+        self.assertContains(response, 'id="id_status_error"')
         self.order.refresh_from_db()
         self.assertNotEqual(self.order.status, "COMPLETED")
+
+    def test_deadline_validation_error_is_visible_next_to_field(self):
+        response = self.client.post(
+            reverse("prescriptions:order_update", args=[self.order.pk]),
+            self.payload(
+                self.order.number,
+                issue_date="2026-12-01",
+                deadline_date="2026-01-01",
+            ),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Срок исполнения не может быть раньше даты выдачи.")
+        self.assertContains(response, 'id="id_deadline_date_error"')
