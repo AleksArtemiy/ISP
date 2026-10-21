@@ -3,91 +3,121 @@
 
 {% block title %}Предписание {{ order.number }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/prescription_detail.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📋 Предписание № {{ order.number }}</h2>
-        <div>
-            <a href="{% url 'prescriptions:order_update' order.pk %}" class="btn btn-warning">✏️ Редактировать</a>
+<div class="prescription-detail-page">
+    <a class="detail-back" href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14"/></svg>
+        Назад
+    </a>
+
+    <article class="prescription-detail" aria-labelledby="prescription-title">
+        <header class="detail-header">
+            <span class="detail-header-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>
+            </span>
+            <div class="detail-heading">
+                <p class="detail-eyebrow">Карточка предписания</p>
+                <h2 id="prescription-title">Предписание № {{ order.number }}</h2>
+            </div>
+            <span class="detail-status detail-status--{{ order.status|lower }}">{{ order.get_status_display }}</span>
+        </header>
+
+        <div class="detail-body">
+            <section class="detail-section" aria-labelledby="information-title">
+                <h3 class="detail-section-title" id="information-title">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>
+                    Основная информация
+                </h3>
+                <dl class="detail-fields">
+                    <div class="detail-field detail-field--wide">
+                        <dt>Учреждение</dt>
+                        <dd>{{ order.institution.name }}</dd>
+                    </div>
+                    <div class="detail-field">
+                        <dt>Надзорный орган</dt>
+                        <dd>{{ order.authority.name|default:"—" }}</dd>
+                    </div>
+                    <div class="detail-field">
+                        <dt>Ответственный (создатель)</dt>
+                        <dd>{{ order.created_by_user.get_full_name|default:order.created_by_user.email }}</dd>
+                    </div>
+                    <div class="detail-field">
+                        <dt>Дата выдачи</dt>
+                        <dd><time datetime="{{ order.issue_date|date:'Y-m-d' }}">{{ order.issue_date|date:"d.m.Y" }}</time></dd>
+                    </div>
+                    <div class="detail-field">
+                        <dt>Срок исполнения</dt>
+                        <dd><time datetime="{{ order.deadline_date|date:'Y-m-d' }}">{{ order.deadline_date|date:"d.m.Y" }}</time></dd>
+                    </div>
+                </dl>
+            </section>
+
+            {% with violations=order.order_violations.all %}
+            <section class="detail-section" aria-labelledby="violations-title">
+                <h3 class="detail-section-title" id="violations-title">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3v.1"/></svg>
+                    Нарушения
+                    <span class="detail-count">{{ violations|length }}</span>
+                </h3>
+                <ol class="detail-violations">
+                    {% for ov in violations %}
+                    <li><span class="detail-violation-number" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span><p>{{ ov.violation.description }}</p></li>
+                    {% empty %}
+                    <li class="detail-empty">Нет нарушений</li>
+                    {% endfor %}
+                </ol>
+            </section>
+            {% endwith %}
+
+            {% with files=order.files.all %}
+            <section class="detail-section" aria-labelledby="files-title">
+                <h3 class="detail-section-title" id="files-title">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 11-8 8a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-9 9a2 2 0 0 1-2.8-2.8L15 6"/></svg>
+                    Прикреплённые файлы
+                    <span class="detail-count">{{ files|length }}</span>
+                </h3>
+                <ul class="detail-files">
+                    {% for file in files %}
+                    <li>
+                        <a class="detail-file" href="{% url 'prescriptions:file_download' file.pk %}">
+                            <span class="detail-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5M9 12h6M9 16h4"/></svg></span>
+                            <span class="detail-file-info">
+                                <span class="detail-file-name">{{ file.original_filename }}</span>
+                                <span class="detail-file-date">Загружен <time datetime="{{ file.uploaded_at|date:'c' }}">{{ file.uploaded_at|date:"d.m.Y H:i" }}</time></span>
+                            </span>
+                            <span class="detail-file-download">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg>
+                                <span>Скачать</span>
+                            </span>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li class="detail-empty">Файлы не прикреплены.</li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endwith %}
+        </div>
+
+        <footer class="detail-actions">
+            <a class="detail-button detail-button--primary" href="{% url 'prescriptions:order_update' order.pk %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Zm-2 2 5 5"/></svg>
+                Редактировать
+            </a>
             {% if order.status != 'COMPLETED' %}
-            <form method="post" action="{% url 'prescriptions:complete_order' order.pk %}" style="display:inline;">
+            <form method="post" action="{% url 'prescriptions:complete_order' order.pk %}">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success">✅ Отметить выполненным</button>
+                <button class="detail-button detail-button--success" type="submit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+                    Отметить выполненным
+                </button>
             </form>
             {% endif %}
-            <a href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}" class="btn btn-secondary">Назад</a>
-        </div>
-    </div>
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <strong>Учреждение:</strong> {{ order.institution.name }}
-                </div>
-                <div class="col-md-6">
-                    <strong>Надзорный орган:</strong> {{ order.authority.name|default:"—" }}
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <strong>Дата выдачи:</strong> {{ order.issue_date|date:"d.m.Y" }}
-                </div>
-                <div class="col-md-6">
-                    <strong>Срок исполнения:</strong> {{ order.deadline_date|date:"d.m.Y" }}
-                </div>
-            </div>
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <strong>Статус:</strong>
-                    <span class="badge 
-                        {% if order.status == 'COMPLETED' %}bg-success
-                        {% elif order.status == 'OVERDUE' %}bg-danger
-                        {% elif order.status == 'IN_PROGRESS' %}bg-warning
-                        {% elif order.status == 'EXPIRING' %}bg-warning text-dark
-                        {% else %}bg-primary{% endif %}">
-                        {{ order.get_status_display }}
-                    </span>
-                </div>
-                <div class="col-md-6">
-                    <strong>Ответственный:</strong> {{ order.created_by_user.get_full_name|default:order.created_by_user.email }}
-                </div>
-            </div>
-
-            <hr>
-            <h5>Нарушения</h5>
-            <ul class="list-group">
-                {% for ov in order.order_violations.all %}
-                <li class="list-group-item">{{ ov.violation.description }}</li>
-                {% empty %}
-                <li class="list-group-item text-muted">Нет нарушений</li>
-                {% endfor %}
-            </ul>
-
-            {% if order.files.exists %}
-            <hr>
-            <div class="card mt-3">
-                <div class="card-header">
-                    <i class="bi bi-paperclip"></i> Прикреплённые файлы
-                </div>
-                <div class="card-body">
-                    {% if order.files.all %}
-                        <ul class="list-unstyled">
-                            {% for file in order.files.all %}
-                                <li>
-                                    <i class="bi bi-file-earmark"></i>
-                                    <a href="{% url 'prescriptions:file_download' file.pk %}">{{ file.original_filename }}</a>
-                                    <span class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</span>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted">Файлы не прикреплены.</p>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+        </footer>
+    </article>
 </div>
 {% endblock %}
