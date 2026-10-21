@@ -1,601 +1,242 @@
 {% extends 'base.html' %}
 
 {% load static %}
+
 {% block extra_css %}
-    <style>
-        /* ---------- Основные переменные ---------- */
-        :root {
-            --primary: #0f3b5c;
-            --primary-light: #e6f0f9;
-            --primary-dark: #0a2a42;
-            --success: #16a34a;
-            --danger: #ef4444;
-            --warning: #d97706;
-            --gray-100: #f8fafc;
-            --gray-200: #e2e8f0;
-            --gray-300: #cbd5e1;
-            --gray-600: #64748b;
-            --gray-800: #1e293b;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-            --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
-            --radius-xl: 24px;
-            --radius-lg: 16px;
-            --radius-md: 12px;
-        }
-
-        .form-page {
-            padding: 2rem 1rem;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .form-card {
-            background: #fff;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-md);
-            border: 1px solid var(--gray-200);
-            overflow: hidden;
-            transition: box-shadow 0.3s ease;
-        }
-
-        .form-card:hover {
-            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
-        }
-
-        .form-header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            padding: 1.8rem 2rem;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .form-header h2 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin: 0;
-            letter-spacing: -0.5px;
-        }
-
-        .form-header .subtitle {
-            font-size: 0.95rem;
-            opacity: 0.85;
-            margin-left: auto;
-            background: rgba(255,255,255,0.15);
-            padding: 0.3rem 1rem;
-            border-radius: 40px;
-        }
-
-        .form-body {
-            padding: 2rem;
-        }
-
-        /* ---------- Секции ---------- */
-        .section {
-            margin-bottom: 2rem;
-            background: var(--gray-100);
-            border-radius: var(--radius-lg);
-            padding: 1.5rem;
-            border: 1px solid var(--gray-200);
-            transition: border-color 0.2s;
-        }
-
-        .section:hover {
-            border-color: var(--primary);
-        }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--gray-800);
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .section-title i {
-            color: var(--primary);
-            font-size: 1.3rem;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.25rem;
-        }
-
-        .form-row.three {
-            grid-template-columns: 1fr 1fr 1fr;
-        }
-
-        .form-group {
-            margin-bottom: 0;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: var(--gray-800);
-            margin-bottom: 0.4rem;
-            letter-spacing: -0.3px;
-        }
-
-        .form-group label .required {
-            color: var(--danger);
-            margin-left: 0.2rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.7rem 1rem;
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius-md);
-            font-size: 1rem;
-            background: #fff;
-            transition: all 0.25s ease;
-            outline: none;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(15, 59, 92, 0.12);
-            background: #fff;
-        }
-
-        .form-control::placeholder {
-            color: var(--gray-300);
-        }
-
-        select.form-control {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-            background-size: 12px;
-            padding-right: 2.5rem;
-        }
-
-        .help-text {
-            font-size: 0.8rem;
-            color: var(--gray-600);
-            margin-top: 0.3rem;
-        }
-
-        /* ---------- Таблица нарушений ---------- */
-        .violation-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0 0.5rem;
-        }
-
-        .violation-table th {
-            padding: 0.5rem 0.75rem;
-            font-weight: 600;
-            color: var(--gray-600);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--gray-200);
-        }
-
-        .violation-table td {
-            padding: 0.25rem 0.75rem;
-            background: #fff;
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            transition: box-shadow 0.2s;
-        }
-
-        .violation-table tr:hover td {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-        }
-
-        .violation-table td:first-child {
-            border-radius: var(--radius-md) 0 0 var(--radius-md);
-        }
-        .violation-table td:last-child {
-            border-radius: 0 var(--radius-md) var(--radius-md) 0;
-            text-align: center;
-        }
-
-        .violation-input {
-            border: none;
-            background: transparent;
-            padding: 0.6rem 0.2rem;
-            width: 100%;
-            font-size: 0.95rem;
-            outline: none;
-            border-bottom: 2px solid transparent;
-            transition: border-color 0.2s;
-        }
-
-        .violation-input:focus {
-            border-bottom-color: var(--primary);
-        }
-
-        .remove-violation {
-            background: none;
-            border: none;
-            color: var(--gray-300);
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: color 0.2s, transform 0.15s;
-            padding: 0.2rem 0.5rem;
-        }
-
-        .remove-violation:hover {
-            color: var(--danger);
-            transform: scale(1.2);
-        }
-
-        /* ---------- Файлы ---------- */
-        .file-upload-area {
-            border: 2px dashed var(--gray-200);
-            border-radius: var(--radius-md);
-            padding: 1.5rem;
-            text-align: center;
-            background: #fafbfc;
-            transition: border-color 0.3s, background 0.3s;
-            cursor: pointer;
-        }
-
-        .file-upload-area:hover {
-            border-color: var(--primary);
-            background: var(--primary-light);
-        }
-
-        .file-upload-area i {
-            font-size: 2.5rem;
-            color: var(--primary);
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-
-        .file-upload-area input[type="file"] {
-            display: none;
-        }
-
-        .file-upload-area .upload-label {
-            font-weight: 600;
-            color: var(--primary);
-            cursor: pointer;
-        }
-
-        .file-list {
-            margin-top: 1rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .file-item {
-            background: var(--gray-100);
-            padding: 0.3rem 0.8rem;
-            border-radius: 40px;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            border: 1px solid var(--gray-200);
-        }
-
-        .file-item i {
-            color: var(--primary);
-        }
-
-        /* ---------- Кнопки ---------- */
-        .actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--gray-200);
-        }
-
-        .btn {
-            padding: 0.6rem 2rem;
-            border-radius: 40px;
-            font-weight: 600;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.25s ease;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.95rem;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(15, 59, 92, 0.25);
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(15, 59, 92, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            color: var(--gray-600);
-            border: 1px solid var(--gray-200);
-        }
-
-        .btn-outline:hover {
-            background: var(--gray-100);
-            border-color: var(--gray-300);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: #fff;
-        }
-
-        .btn-success:hover {
-            background: #15803d;
-            transform: translateY(-2px);
-        }
-
-        /* ---------- Анимация добавления/удаления ---------- */
-        .violation-row-enter {
-            animation: slideDown 0.3s ease;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ---------- Адаптив ---------- */
-        @media (max-width: 768px) {
-            .form-row { grid-template-columns: 1fr; }
-            .form-row.three { grid-template-columns: 1fr; }
-            .form-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .form-header .subtitle {
-                margin-left: 0;
-            }
-            .actions {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: stretch;
-            }
-            .actions .btn {
-                justify-content: center;
-            }
-        }
-
-        .drop-area {
-    border: 2px dashed #cbd5e1;
-    border-radius: 16px;
-    padding: 2rem 1rem;
-    text-align: center;
-    background: #f8fafc;
-    transition: border-color 0.3s, background 0.3s;
-    cursor: pointer;
-}
-.drop-area.dragover {
-    border-color: #0f3b5c;
-    background: #e6f0f9;
-}
-.drop-area .upload-link {
-    color: #0f3b5c;
-    font-weight: 600;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.file-list .file-item {
-    display: inline-flex;
-    align-items: center;
-    background: #f1f5f9;
-    padding: 0.3rem 0.8rem;
-    border-radius: 40px;
-    margin: 0.2rem;
-    border: 1px solid #e2e8f0;
-    font-size: 0.9rem;
-}
-.file-list .file-item .remove-file {
-    margin-left: 0.5rem;
-    cursor: pointer;
-    color: #ef4444;
-    font-weight: bold;
-    font-size: 1.2rem;
-    line-height: 1;
-}
-.file-list .file-item .remove-file:hover {
-    color: #b91c1c;
-}
-    </style>
+<link rel="stylesheet" href="{% static 'css/prescription_form.css' %}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card shadow-lg border-0 rounded-4">
-                <div class="card-header bg-primary text-white py-3 rounded-top-4">
-                    <h3 class="card-title m-0 fw-bold text-center">
-                        <i class="bi bi-plus-circle me-2"></i> {{ title }}
-                    </h3>
-                    <p class="text-center text-white-50 mb-0 small">Заполните все обязательные поля</p>
-                </div>
+<div class="prescription-form-page">
+    <a class="form-back" href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        Назад
+    </a>
 
-                <div class="card-body p-4">
-                    <form method="post" id="orderForm" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ next }}">
-                        <!-- Основная информация -->
-                        <div class="card mb-4 border-0 shadow-sm">
-                            <div class="card-header bg-light fw-bold text-secondary">
-                                <i class="bi bi-file-earmark-text me-2"></i> Основная информация
-                            </div>
-                            <div class="card-body bg-white">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Номер предписания</label>
-                                        {{ form.number }}
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-bold">Дата выдачи</label>
-                                        {{ form.issue_date }}
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label fw-bold">Срок исполнения</label>
-                                        {{ form.deadline_date }}
-                                    </div>
-                                </div>
+    <section class="prescription-form" aria-labelledby="prescription-form-title">
+        <header class="form-header">
+            <span class="form-header-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="M7 3h7l4 4v14H7z"/>
+                    <path d="M14 3v5h5M10 12h5M10 16h5"/>
+                </svg>
+            </span>
+            <div class="form-heading">
+                <p class="form-eyebrow">Реестр предписаний</p>
+                <h2 id="prescription-form-title">{{ title }}</h2>
+            </div>
+            <span class="form-header-note">Поля со звёздочкой обязательны</span>
+        </header>
 
-                                <div class="row g-3 mt-2">
-                                    {% if not hide_institution_fields %}
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Учреждение</label>
-                                        {{ form.institution }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Надзорный орган</label>
-                                        {{ form.authority }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Ответственный (создатель)</label>
-                                        {{ form.created_by_user }}
-                                    </div>
-                                {% else %}
-                                    <!-- Для директора выводим надзорный орган на всю ширину -->
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Надзорный орган</label>
-                                        {{ form.authority }}
-                                    </div>
-                                    <!-- Скрытые поля для директора (они не видны, но их значения установлены) -->
-                                    {{ form.institution }}
-                                    {{ form.created_by_user }}
-                                    {{ form.status }}
-                                {% endif %}
-                            </div>
-                            {% if not is_director %}
-                                <div class="row mt-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Статус</label>
-                                        {{ form.status }}
-                                    </div>
+        <form method="post" id="orderForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+
+            <div class="form-body">
+                {% if form.non_field_errors or violation_formset.non_form_errors %}
+                    <div class="form-alert" role="alert">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 9v4M12 17h.01"/>
+                            <path d="M10.3 4.5L3.4 17a2 2 0 001.8 3h13.6a2 2 0 001.8-3L13.7 4.5a2 2 0 00-3.4 0z"/>
+                        </svg>
+                        <div>
+                            <strong>Проверьте заполнение формы</strong>
+                            {{ form.non_field_errors }}
+                            {{ violation_formset.non_form_errors }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <section class="form-section" aria-labelledby="main-information-title">
+                    <div class="form-section-heading">
+                        <span class="form-section-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M7 3h7l4 4v14H7z"/>
+                                <path d="M14 3v5h5M10 12h5M10 16h5"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 id="main-information-title">Основная информация</h3>
+                            <p>Реквизиты и участники предписания</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-field form-field--wide">
+                            <label for="{{ form.number.id_for_label }}">Номер предписания <span aria-hidden="true">*</span></label>
+                            {{ form.number }}
+                            {{ form.number.errors }}
+                        </div>
+
+                        <div class="form-field">
+                            <label for="{{ form.issue_date.id_for_label }}">Дата выдачи <span aria-hidden="true">*</span></label>
+                            {{ form.issue_date }}
+                            {{ form.issue_date.errors }}
+                        </div>
+
+                        <div class="form-field">
+                            <label for="{{ form.deadline_date.id_for_label }}">Срок исполнения <span aria-hidden="true">*</span></label>
+                            {{ form.deadline_date }}
+                            {{ form.deadline_date.errors }}
+                        </div>
+
+                        {% if hide_institution_fields %}
+                            {{ form.institution }}
+                            {{ form.institution.errors }}
+                            {% if is_director %}
+                                <div class="form-field form-field--wide">
+                                    <span class="form-field-label">Учреждение</span>
+                                    <div class="form-readonly">{{ user.institution.name|default:user.institution }}</div>
                                 </div>
                             {% endif %}
+                        {% else %}
+                            <div class="form-field form-field--wide">
+                                <label for="{{ form.institution.id_for_label }}">Учреждение <span aria-hidden="true">*</span></label>
+                                {{ form.institution }}
+                                {{ form.institution.errors }}
                             </div>
+                        {% endif %}
+
+                        <div class="form-field{% if is_director %} form-field--wide{% endif %}">
+                            <label for="{{ form.authority.id_for_label }}">Надзорный орган <span aria-hidden="true">*</span></label>
+                            {{ form.authority }}
+                            {{ form.authority.errors }}
                         </div>
 
-                        <!-- Нарушения -->
-                        <div class="card mb-4 border-0 shadow-sm">
-                            <div class="card-header bg-light fw-bold text-danger">
-                                <i class="bi bi-exclamation-triangle me-2"></i> Нарушения
+                        {% if is_director %}
+                            {{ form.created_by_user }}
+                            {{ form.status }}
+                            {{ form.created_by_user.errors }}
+                            {{ form.status.errors }}
+                        {% else %}
+                            <div class="form-field">
+                                <label for="{{ form.created_by_user.id_for_label }}">Ответственный (создатель)</label>
+                                {{ form.created_by_user }}
+                                <p class="form-help">Автор записи определяется системой и не может быть изменён.</p>
+                                {{ form.created_by_user.errors }}
                             </div>
-                            <div class="card-body bg-white">
-                                {{ violation_formset.management_form }}
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-hover align-middle" id="violationsTable">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="width: 85%">Описание нарушения</th>
-                                                <th style="width: 15%" class="text-center">Удалить</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for form in violation_formset %}
-                                            <tr>
-                                                <td>
-                                                    {{ form.text }}
-                                                    <!-- Добавляем datalist для подсказок -->
-                                                    <datalist id="violation-list">
-                                                        {% for violation in violation_list %}
-                                                            <option value="{{ violation }}"></option>
-                                                        {% endfor %}
-                                                    </datalist>
-                                                </td>
-                                                <td class="text-center">
-                                                    <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
-                                                        <i class="bi bi-trash3"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="text-end mt-2">
-                                    <button type="button" class="btn btn-outline-success btn-sm" id="addViolationBtn">
-                                        <i class="bi bi-plus-lg"></i> Добавить нарушение
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Файлы -->
-                        <div class="card mb-4 border-0 shadow-sm">
-                            <div class="card-header bg-light fw-bold text-primary">
-                                <i class="bi bi-paperclip me-2"></i> Прикреплённые файлы
-                            </div>
-                            <div class="card-body bg-white">
-                                <!-- Существующие файлы (при редактировании) -->
-                                {% if existing_files %}
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Текущие файлы:</label>
-                                        <ul class="list-unstyled">
-                                            {% for file in existing_files %}
-                                                <li class="mb-1">
-                                                    <i class="bi bi-file-earmark me-1"></i>
-                                                    <a href="{% url 'prescriptions:file_download' file.pk %}">{{ file.original_filename }}</a>
-                                                    <small class="text-muted ms-2">(загружен {{ file.uploaded_at|date:"d.m.Y H:i" }})</small>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    </div>
+                            <div class="form-field">
+                                <label for="{{ form.status.id_for_label }}">Статус <span aria-hidden="true">*</span></label>
+                                {{ form.status }}
+                                {% if not object %}
+                                    <p class="form-help">Новое предписание сохраняется со статусом «Новое».</p>
                                 {% endif %}
+                                {{ form.status.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
 
-                                <!-- Область перетаскивания -->
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold">Добавить новые файлы (макс. 5)</label>
-                                    <div id="drop-area" class="drop-area">
-                                        <div class="drop-zone">
-                                            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: var(--primary);"></i>
-                                            <p class="mt-2 mb-1">Перетащите файлы сюда или <span class="upload-link">выберите на компьютере</span></p>
-                                            <small class="text-muted">Поддерживаются: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (до 10 МБ каждый)</small>
-                                            <input type="file" id="fileInput" name="attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display: none;">
-                                        </div>
-                                    </div>
-                                    <div id="file-list" class="file-list mt-2"></div>
-                                    <button type="button" id="clear-files" class="btn btn-outline-danger btn-sm mt-2" style="display:none;">Очистить все</button>
-                                </div>
+                <section class="form-section" aria-labelledby="violations-title">
+                    <div class="form-section-heading form-section-heading--with-action">
+                        <div class="form-section-heading-main">
+                            <span class="form-section-icon form-section-icon--warning" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 9v4M12 17h.01"/>
+                                    <path d="M10.3 4.5L3.4 17a2 2 0 001.8 3h13.6a2 2 0 001.8-3L13.7 4.5a2 2 0 00-3.4 0z"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <h3 id="violations-title">Нарушения</h3>
+                                <p>Добавьте одно или несколько описаний</p>
                             </div>
                         </div>
+                        <button type="button" class="form-button form-button--secondary" id="addViolationBtn">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                            Добавить нарушение
+                        </button>
+                    </div>
 
-                        <!-- Кнопки действий -->
-                        <div class="d-flex justify-content-between mt-4">
-                            <a href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}" class="btn btn-outline-secondary px-4">
-                                <i class="bi bi-x-circle me-1"></i> Отмена
-                            </a>
-                            <button type="submit" class="btn btn-primary px-5 shadow">
-                                <i class="bi bi-check2-circle me-2"></i> Сохранить предписание
-                            </button>
+                    {{ violation_formset.management_form }}
+                    <div class="violations-wrap">
+                        <table class="violations-table" id="violationsTable">
+                            <thead>
+                                <tr>
+                                    <th>Описание нарушения</th>
+                                    <th><span class="visually-hidden">Действия</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for violation_form in violation_formset %}
+                                    <tr>
+                                        <td>
+                                            {{ violation_form.text }}
+                                            {{ violation_form.text.errors }}
+                                        </td>
+                                        <td class="violation-action">
+                                            <button type="button" class="remove-violation" aria-label="Удалить нарушение {{ forloop.counter }}">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path d="M4 7h16M9 7V4h6v3M8 11v6M12 11v6M16 11v6M6 7l1 14h10l1-14"/>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <datalist id="violation-list">
+                        {% for violation in violation_list %}
+                            <option value="{{ violation }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </section>
+
+                <section class="form-section" aria-labelledby="attachments-title">
+                    <div class="form-section-heading">
+                        <span class="form-section-icon form-section-icon--files" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M9 12l4.6-4.6a3 3 0 114.2 4.2l-6.4 6.4a5 5 0 11-7.1-7.1l6.2-6.2"/></svg>
+                        </span>
+                        <div>
+                            <h3 id="attachments-title">Прикреплённые файлы</h3>
+                            <p>Документы и подтверждающие материалы</p>
                         </div>
-                    </form>
-                </div>
+                    </div>
+
+                    {% if existing_files %}
+                        <div class="existing-files">
+                            <p class="files-label">Текущие файлы</p>
+                            <ul>
+                                {% for file in existing_files %}
+                                    <li>
+                                        <span class="existing-file-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/></svg>
+                                        </span>
+                                        <a href="{% url 'prescriptions:file_download' file.pk %}">{{ file.original_filename }}</a>
+                                        <time datetime="{{ file.uploaded_at|date:'c' }}">{{ file.uploaded_at|date:"d.m.Y H:i" }}</time>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <div id="drop-area" class="drop-area" role="button" tabindex="0" aria-controls="fileInput">
+                        <span class="drop-area-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M12 16V5M8 9l4-4 4 4"/><path d="M5 13v6h14v-6"/></svg>
+                        </span>
+                        <p>Перетащите файлы сюда или <span class="upload-link">выберите на компьютере</span></p>
+                        <small>PDF, DOC, DOCX, XLS, XLSX, JPG или PNG — до 10 МБ каждый, не более 5 файлов</small>
+                    </div>
+                    <input type="file" id="fileInput" name="attachments" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" hidden>
+                    <div id="file-list" class="selected-files" aria-live="polite"></div>
+                    <button type="button" id="clear-files" class="clear-files" hidden>Очистить выбранные файлы</button>
+                </section>
             </div>
-        </div>
-    </div>
+
+            <footer class="form-actions">
+                <a href="{% if next %}{{ next }}{% else %}{% url 'prescriptions:order_list' %}{% endif %}" class="form-button form-button--cancel">Отмена</a>
+                <button type="submit" class="form-button form-button--primary">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg>
+                    {% if object %}Сохранить изменения{% else %}Создать предписание{% endif %}
+                </button>
+            </footer>
+        </form>
+    </section>
 </div>
+{% endblock %}
 
-<!-- Подключаем Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-<!-- Скрипт для добавления/удаления нарушений и автодополнения -->
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('violationsTable');
@@ -608,219 +249,166 @@ document.addEventListener('DOMContentLoaded', function() {
         const rows = tbody.querySelectorAll('tr');
         totalFormsInput.value = rows.length;
 
-        rows.forEach((row, idx) => {
+        rows.forEach((row, index) => {
             const input = row.querySelector('.violation-input');
+            const removeButton = row.querySelector('.remove-violation');
             if (input) {
-                const name = input.getAttribute('name');
-                if (name) {
-                    const newName = name.replace(/violations-\d+-/, `violations-${idx}-`);
-                    input.setAttribute('name', newName);
-                }
-                const id = input.getAttribute('id');
-                if (id) {
-                    const newId = id.replace(/violations-\d+-/, `violations-${idx}-`);
-                    input.setAttribute('id', newId);
-                }
+                input.name = input.name.replace(/violations-\d+-/, `violations-${index}-`);
+                input.id = input.id.replace(/violations-\d+-/, `violations-${index}-`);
             }
+            if (removeButton) removeButton.setAttribute('aria-label', `Удалить нарушение ${index + 1}`);
         });
     }
 
     function createViolationRow() {
-        const totalForms = document.querySelector('#id_violations-TOTAL_FORMS');
-        const currentCount = parseInt(totalForms.value);
-        const newRow = document.createElement('tr');
-        newRow.innerHTML = `
+        const currentCount = tbody.querySelectorAll('tr').length;
+        const row = document.createElement('tr');
+        row.className = 'violation-row-enter';
+        row.innerHTML = `
             <td>
-                <input type="text" 
-                       name="violations-${currentCount}-text" 
-                       id="violations-${currentCount}-text"
-                       class="form-control violation-input" 
-                       list="violation-list"
-                       placeholder="Введите нарушение...">
+                <input type="text" name="violations-${currentCount}-text"
+                       id="id_violations-${currentCount}-text"
+                       class="form-control violation-input" list="violation-list"
+                       placeholder="Введите нарушение..." autocomplete="off">
             </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-violation">
-                    <i class="bi bi-trash3"></i>
+            <td class="violation-action">
+                <button type="button" class="remove-violation" aria-label="Удалить нарушение ${currentCount + 1}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16M9 7V4h6v3M8 11v6M12 11v6M16 11v6M6 7l1 14h10l1-14"></path>
+                    </svg>
                 </button>
-            </td>
-        `;
-        return newRow;
+            </td>`;
+        return row;
     }
 
     addBtn.addEventListener('click', function() {
-        const newRow = createViolationRow();
-        tbody.appendChild(newRow);
+        const row = createViolationRow();
+        tbody.appendChild(row);
         updateFormIndexes();
+        row.querySelector('.violation-input').focus();
     });
 
-    tbody.addEventListener('click', function(e) {
-        const btn = e.target.closest('.remove-violation');
-        if (!btn) return;
-        const row = btn.closest('tr');
+    tbody.addEventListener('click', function(event) {
+        const button = event.target.closest('.remove-violation');
+        if (!button) return;
+        const row = button.closest('tr');
         if (tbody.querySelectorAll('tr').length > 1) {
             row.remove();
             updateFormIndexes();
         } else {
             const input = row.querySelector('.violation-input');
-            if (input) input.value = '';
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
         }
     });
 
     updateFormIndexes();
-});
 
-// ========== Управление файлами ==========
-let selectedFiles = [];
+    let selectedFiles = [];
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('file-list');
+    const clearBtn = document.getElementById('clear-files');
 
-const dropArea = document.getElementById('drop-area');
-const fileInput = document.getElementById('fileInput');
-const fileList = document.getElementById('file-list');
-const clearBtn = document.getElementById('clear-files');
+    function updateFileList() {
+        fileList.replaceChildren();
+        clearBtn.hidden = selectedFiles.length === 0;
 
-function updateFileList() {
-    fileList.replaceChildren();
-    if (selectedFiles.length === 0) {
-        clearBtn.style.display = 'none';
-        return;
+        selectedFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'selected-file';
+
+            const iconNode = document.createElement('span');
+            iconNode.className = 'selected-file-type';
+            iconNode.textContent = getFileIcon(file.name);
+
+            const infoNode = document.createElement('span');
+            infoNode.className = 'selected-file-info';
+
+            const nameNode = document.createElement('span');
+            nameNode.className = 'selected-file-name';
+            nameNode.textContent = file.name;
+
+            const sizeNode = document.createElement('small');
+            sizeNode.textContent = `${(file.size / 1024).toFixed(1)} КБ`;
+
+            const removeNode = document.createElement('button');
+            removeNode.type = 'button';
+            removeNode.className = 'remove-file';
+            removeNode.dataset.index = String(index);
+            removeNode.setAttribute('aria-label', `Убрать файл ${file.name}`);
+            removeNode.textContent = '×';
+
+            infoNode.append(nameNode, sizeNode);
+            item.append(iconNode, infoNode, removeNode);
+            fileList.appendChild(item);
+        });
     }
-    clearBtn.style.display = 'inline-block';
-    selectedFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'file-item';
-        const icon = getFileIcon(file.name);
-        const iconNode = document.createElement('i');
-        iconNode.className = `bi ${icon} me-1`;
-        const nameNode = document.createElement('span');
-        nameNode.textContent = file.name;
-        const sizeNode = document.createElement('small');
-        sizeNode.className = 'text-muted ms-1';
-        sizeNode.textContent = `(${(file.size / 1024).toFixed(1)} КБ)`;
-        const removeNode = document.createElement('span');
-        removeNode.className = 'remove-file';
-        removeNode.dataset.index = String(index);
-        removeNode.textContent = '×';
-        item.append(iconNode, nameNode, sizeNode, removeNode);
-        fileList.appendChild(item);
-    });
-}
 
-function getFileIcon(filename) {
-    const ext = filename.split('.').pop().toLowerCase();
-    const map = {
-        pdf: 'bi-filetype-pdf',
-        doc: 'bi-filetype-doc',
-        docx: 'bi-filetype-docx',
-        xls: 'bi-filetype-xls',
-        xlsx: 'bi-filetype-xlsx',
-        jpg: 'bi-filetype-jpg',
-        jpeg: 'bi-filetype-jpg',
-        png: 'bi-filetype-png',
-    };
-    return map[ext] || 'bi-file-earmark';
-}
-
-function addFiles(files) {
-    if (selectedFiles.length + files.length > 5) {
-        alert('Можно добавить не более 5 файлов.');
-        return;
+    function getFileIcon(filename) {
+        const extension = filename.includes('.') ? filename.split('.').pop().toUpperCase() : 'FILE';
+        return extension.slice(0, 4);
     }
-    const maxSize = 10 * 1024 * 1024;
-    const allowedExtensions = ['pdf','doc','docx','xls','xlsx','jpg','jpeg','png'];
-    for (let f of files) {
-        if (f.size > maxSize) {
-            alert(`Файл "${f.name}" превышает 10 МБ.`);
+
+    function addFiles(files) {
+        if (selectedFiles.length + files.length > 5) {
+            alert('Можно добавить не более 5 файлов.');
             return;
         }
-        const ext = f.name.split('.').pop().toLowerCase();
-        if (!allowedExtensions.includes(ext)) {
-            alert(`Недопустимый формат "${ext}". Разрешены: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG.`);
-            return;
+        const maxSize = 10 * 1024 * 1024;
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'];
+        for (const file of files) {
+            if (file.size > maxSize) {
+                alert(`Файл "${file.name}" превышает 10 МБ.`);
+                return;
+            }
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(extension)) {
+                alert(`Недопустимый формат "${extension}". Разрешены: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG.`);
+                return;
+            }
         }
-    }
-    selectedFiles = selectedFiles.concat(files);
-    updateFileList();
-    fileInput.value = ''; // очищаем input для повторного выбора
-}
-
-// Обработка выбора через input
-fileInput.addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    addFiles(files);
-});
-
-// Drag-and-drop
-dropArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropArea.classList.add('dragover');
-});
-dropArea.addEventListener('dragleave', () => {
-    dropArea.classList.remove('dragover');
-});
-dropArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropArea.classList.remove('dragover');
-    const files = Array.from(e.dataTransfer.files);
-    addFiles(files);
-});
-
-// Клик по области открывает диалог
-dropArea.addEventListener('click', () => {
-    fileInput.click();
-});
-
-// Удаление отдельного файла
-fileList.addEventListener('click', (e) => {
-    if (e.target.classList.contains('remove-file')) {
-        const index = parseInt(e.target.dataset.index);
-        selectedFiles.splice(index, 1);
+        selectedFiles = selectedFiles.concat(files);
         updateFileList();
+        fileInput.value = '';
     }
-});
 
-// Очистить все
-clearBtn.addEventListener('click', () => {
-    selectedFiles = [];
-    updateFileList();
-    fileInput.value = '';
-});
-
-// Перехват отправки формы для отправки файлов из массива
-const form = document.getElementById('orderForm');
-form.addEventListener('submit', function() {
-    // Native submission preserves server validation and the validated redirect.
-    const transfer = new DataTransfer();
-    selectedFiles.forEach(file => transfer.items.add(file));
-    fileInput.files = transfer.files;
+    fileInput.addEventListener('change', event => addFiles(Array.from(event.target.files)));
+    dropArea.addEventListener('dragover', function(event) {
+        event.preventDefault();
+        dropArea.classList.add('dragover');
+    });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+    dropArea.addEventListener('drop', function(event) {
+        event.preventDefault();
+        dropArea.classList.remove('dragover');
+        addFiles(Array.from(event.dataTransfer.files));
+    });
+    dropArea.addEventListener('click', () => fileInput.click());
+    dropArea.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            fileInput.click();
+        }
+    });
+    fileList.addEventListener('click', function(event) {
+        const button = event.target.closest('.remove-file');
+        if (!button) return;
+        selectedFiles.splice(Number(button.dataset.index), 1);
+        updateFileList();
+    });
+    clearBtn.addEventListener('click', function() {
+        selectedFiles = [];
+        updateFileList();
+        fileInput.value = '';
+    });
+    document.getElementById('orderForm').addEventListener('submit', function() {
+        const transfer = new DataTransfer();
+        selectedFiles.forEach(file => transfer.items.add(file));
+        fileInput.files = transfer.files;
+    });
 });
 </script>
-
-<!-- Дополнительные стили -->
-<style>
-    input[type="text"], input[type="date"], select, textarea {
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-        padding: 8px 12px;
-        width: 100%;
-        transition: border-color 0.3s;
-    }
-    input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-        outline: none;
-    }
-    textarea {
-        min-height: 80px;
-        resize: vertical;
-    }
-    .card-header {
-        border-bottom: none;
-    }
-    .violation-input {
-        min-width: 100%;
-        background: #fff;
-    }
-    .remove-violation {
-        padding: 2px 8px;
-    }
-</style>
 {% endblock %}
